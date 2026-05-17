@@ -1,0 +1,361 @@
+:root {
+  color: #1b2520;
+  background: #f4f1e9;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  min-height: 100vh;
+}
+
+.reader-panel {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  min-height: 100vh;
+  padding: 28px;
+  background: #16352f;
+  color: #fffdf5;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: #f0c25d;
+  color: #16352f;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: #8b6f3b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.reader-panel .eyebrow {
+  color: #f0c25d;
+}
+
+h1,
+h2 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: 1.45rem;
+}
+
+h2 {
+  font-size: clamp(1.9rem, 3vw, 3rem);
+  color: #16352f;
+}
+
+.chapter-search {
+  display: grid;
+  gap: 8px;
+}
+
+.chapter-search label {
+  font-weight: 700;
+}
+
+.chapter-input-row {
+  height: 48px;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 0 8px 0 14px;
+  border-radius: 8px;
+  background: #fffdf5;
+  color: #16352f;
+}
+
+.chapter-input-row input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #16352f;
+  background: transparent;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.chapter-input-row button,
+.quick-grid button,
+.stepper button {
+  border: 0;
+  border-radius: 8px;
+  background: #f0c25d;
+  color: #16352f;
+  font-weight: 800;
+}
+
+.chapter-input-row button {
+  padding: 9px 14px;
+}
+
+.stepper {
+  height: 48px;
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepper strong {
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+.stepper button {
+  height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.quick-grid button {
+  height: 42px;
+  background: rgba(255, 253, 245, 0.12);
+  color: #fffdf5;
+  border: 1px solid rgba(255, 253, 245, 0.18);
+}
+
+.quick-grid button.active,
+.quick-grid button:hover {
+  background: #f0c25d;
+  color: #16352f;
+}
+
+.chapter-select {
+  width: 100%;
+  height: 46px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 253, 245, 0.18);
+  background: rgba(255, 253, 245, 0.12);
+  color: #fffdf5;
+  padding: 0 12px;
+}
+
+.chapter-select option {
+  color: #16352f;
+}
+
+.source-note {
+  margin: auto 0 0;
+  color: rgba(255, 253, 245, 0.74);
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.text-area {
+  padding: 34px clamp(18px, 5vw, 72px) 72px;
+}
+
+.text-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 auto 26px;
+  max-width: 980px;
+}
+
+.status {
+  min-width: 116px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid #d9cfb8;
+  border-radius: 999px;
+  color: #395a52;
+  background: #fffdf5;
+  font-weight: 800;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.verse-list {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  gap: 16px;
+}
+
+.verse-card {
+  position: relative;
+  padding: 26px clamp(18px, 4vw, 34px) 28px;
+  border: 1px solid #dfd4bd;
+  border-radius: 8px;
+  background: #fffdf5;
+  box-shadow: 0 14px 32px rgba(31, 49, 43, 0.08);
+}
+
+.verse-number {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #e9efe3;
+  color: #395a52;
+  font-weight: 900;
+  font-size: 0.9rem;
+}
+
+.interlinear {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 16px 18px;
+  margin: 0;
+  padding-left: 48px;
+  direction: rtl;
+}
+
+.word-pair {
+  min-width: max-content;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hebrew-word {
+  color: #17312c;
+  font-family: "SBL Hebrew", "Ezra SIL", "Times New Roman", serif;
+  font-size: clamp(1.65rem, 3.7vw, 2.8rem);
+  line-height: 1.15;
+}
+
+.transliteration {
+  margin: 0;
+  color: #7a4f18;
+  font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+  line-height: 1.25;
+  font-weight: 750;
+  text-align: center;
+}
+
+.english {
+  margin: 18px 0 0;
+  color: #39443f;
+  font-size: clamp(1rem, 1.8vw, 1.16rem);
+  line-height: 1.7;
+}
+
+.notice {
+  max-width: 980px;
+  margin: 0 auto;
+  border-radius: 8px;
+  border: 1px solid #d5a792;
+  background: #fff6ef;
+  color: #773b24;
+  padding: 18px;
+  font-weight: 700;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .reader-panel {
+    position: static;
+    min-height: auto;
+    padding: 20px;
+  }
+
+  .source-note {
+    margin-top: 0;
+  }
+
+  .text-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .interlinear {
+    padding-left: 0;
+    padding-top: 30px;
+  }
+}
+
+@media (max-width: 520px) {
+  .text-area {
+    padding-inline: 12px;
+  }
+
+  .verse-card {
+    padding-inline: 16px;
+  }
+
+  .quick-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
