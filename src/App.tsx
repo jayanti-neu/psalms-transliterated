@@ -2,6 +2,7 @@ import { BookOpen, ChevronLeft, ChevronRight, Loader2, Search, Sparkles } from "
 import { transliterate } from "hebrew-transliteration";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPsalm, type Verse } from "./sefaria";
+import { getLocalWordGloss, getRemoteWordGloss } from "./glossary";
 
 const PSALM_COUNT = 150;
 const featuredChapters = [1, 16, 23, 27, 30, 51, 91, 100, 121, 130, 145, 150];
@@ -193,16 +194,64 @@ function VerseCard({ verse }: { verse: Verse }) {
       <div className="verse-number">{verse.number}</div>
       <div className="interlinear" dir="rtl" lang="he" aria-label={`Psalm verse ${verse.number}`}>
         {words.map((word, index) => (
-          <span className="word-pair" key={`${word}-${index}`}>
-            <span className="hebrew-word">{word}</span>
-            <span className="transliteration" dir="ltr" lang="en">
-              {safeTransliterate(word)}
-            </span>
-          </span>
+          <WordPair word={word} key={`${word}-${index}`} />
         ))}
       </div>
       <p className="english">{verse.english}</p>
     </article>
+  );
+}
+
+function WordPair({ word }: { word: string }) {
+  const localGloss = getLocalWordGloss(word);
+  const [remoteGloss, setRemoteGloss] = useState<string | null>(null);
+  const [isLoadingGloss, setIsLoadingGloss] = useState(!localGloss);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (localGloss) {
+      setRemoteGloss(null);
+      setIsLoadingGloss(false);
+      return;
+    }
+
+    setIsLoadingGloss(true);
+    getRemoteWordGloss(word)
+      .then((gloss) => {
+        if (!cancelled) {
+          setRemoteGloss(gloss);
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn("Sefaria lexicon lookup failed", error);
+        if (!cancelled) {
+          setRemoteGloss(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoadingGloss(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [localGloss, word]);
+
+  const gloss = localGloss ?? remoteGloss ?? (isLoadingGloss ? "looking up" : "not found");
+
+  return (
+    <span className="word-pair">
+      <span className="hebrew-word">{word}</span>
+      <span className="transliteration" dir="ltr" lang="en">
+        {safeTransliterate(word)}
+      </span>
+      <span className={`gloss${!localGloss && !remoteGloss ? " muted" : ""}`} dir="ltr" lang="en">
+        {gloss}
+      </span>
+    </span>
   );
 }
 

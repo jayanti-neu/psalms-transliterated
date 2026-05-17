@@ -296,6 +296,19 @@ h2 {
   text-align: center;
 }
 
+.gloss {
+  max-width: 9rem;
+  color: #53655d;
+  font-size: clamp(0.76rem, 1.2vw, 0.9rem);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.gloss.muted {
+  color: #9a8f7f;
+  font-style: italic;
+}
+
 .english {
   margin: 18px 0 0;
   color: #39443f;
