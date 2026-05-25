@@ -1,11 +1,30 @@
-import { BookOpen, ChevronLeft, ChevronRight, Loader2, Search, Sparkles } from "lucide-react";
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Menu,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
 import { transliterate } from "hebrew-transliteration";
 import { useEffect, useMemo, useState } from "react";
+import type { MaculaWord, MaculaWordPart } from "./macula";
 import { fetchPsalm, type Verse } from "./sefaria";
-import { getLocalWordGloss, getRemoteWordGloss } from "./glossary";
 
 const PSALM_COUNT = 150;
-const featuredChapters = [1, 16, 23, 27, 30, 51, 91, 100, 121, 130, 145, 150];
+const FAVORITES_STORAGE_KEY = "tehilim-reader:favorites";
+const MAQQEF = "\u05BE";
+const MEANING_RANGES: Record<string, string[]> = {
+  "\u05D0\u05DC": ["to", "toward", "unto"],
+  "\u05D1": ["in", "with", "by"],
+  "\u05DC": ["to", "for", "of"],
+  "\u05DE": ["from", "out of", "because of"],
+  "\u05E2\u05D3": ["until", "as far as"],
+  "\u05E2\u05DC": ["on", "upon", "over", "against", "concerning"],
+  "\u05DB": ["like", "as", "according to"],
+};
 
 type LoadState =
   | { status: "loading"; verses: Verse[]; error: "" }
@@ -13,8 +32,14 @@ type LoadState =
   | { status: "error"; verses: Verse[]; error: string };
 
 function App() {
-  const [chapter, setChapter] = useState(23);
-  const [typedChapter, setTypedChapter] = useState("23");
+  const initialChapter = getInitialChapter();
+  const [chapter, setChapter] = useState(initialChapter);
+  const [typedChapter, setTypedChapter] = useState(String(initialChapter));
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isDesktopPanelHidden, setIsDesktopPanelHidden] = useState(true);
+  const [isNearBottom, setIsNearBottom] = useState(false);
+  const [openWordId, setOpenWordId] = useState<string | null>(null);
+  const [favoriteChapters, setFavoriteChapters] = useState<number[]>(() => loadFavorites());
   const [loadState, setLoadState] = useState<LoadState>({
     status: "loading",
     verses: [],
@@ -50,15 +75,44 @@ function App() {
     };
   }, [chapter]);
 
-  const chapterOptions = useMemo(
-    () => Array.from({ length: PSALM_COUNT }, (_, index) => index + 1),
-    [],
-  );
+  useEffect(() => {
+    function closeWordDetails() {
+      setOpenWordId(null);
+    }
+
+    document.addEventListener("click", closeWordDetails);
+
+    return () => {
+      document.removeEventListener("click", closeWordDetails);
+    };
+  }, []);
+
+  useEffect(() => {
+    function updateBottomState() {
+      const remaining =
+        document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+      setIsNearBottom(remaining < 180);
+    }
+
+    updateBottomState();
+    window.addEventListener("scroll", updateBottomState, { passive: true });
+    window.addEventListener("resize", updateBottomState);
+
+    return () => {
+      window.removeEventListener("scroll", updateBottomState);
+      window.removeEventListener("resize", updateBottomState);
+    };
+  }, [chapter]);
+
+  const isFavorite = favoriteChapters.includes(chapter);
 
   function chooseChapter(nextChapter: number) {
     const safeChapter = Math.min(PSALM_COUNT, Math.max(1, nextChapter));
     setChapter(safeChapter);
     setTypedChapter(String(safeChapter));
+    setIsPanelOpen(false);
+    setOpenWordId(null);
+    setUrlChapter(safeChapter);
   }
 
   function submitTypedChapter(event: React.FormEvent<HTMLFormElement>) {
@@ -69,9 +123,48 @@ function App() {
     }
   }
 
+  function toggleFavorite() {
+    setFavoriteChapters((current) => {
+      const next = current.includes(chapter)
+        ? current.filter((item) => item !== chapter)
+        : [...current, chapter].sort((first, second) => first - second);
+
+      saveFavorites(next);
+      return next;
+    });
+  }
+
   return (
-    <main className="app-shell">
-      <aside className="reader-panel">
+    <main className={`app-shell${isDesktopPanelHidden ? " panel-hidden" : ""}`}>
+      <button
+        type="button"
+        className="desktop-panel-toggle"
+        onClick={() => setIsDesktopPanelHidden((current) => !current)}
+        aria-label={isDesktopPanelHidden ? "Show reader controls" : "Hide reader controls"}
+        aria-pressed={isDesktopPanelHidden}
+      >
+        {isDesktopPanelHidden ? <Menu size={20} /> : <X size={20} />}
+      </button>
+
+      <button
+        type="button"
+        className="mobile-panel-toggle"
+        onClick={() => setIsPanelOpen(true)}
+        aria-label="Open reader controls"
+      >
+        <BookOpen size={20} />
+      </button>
+
+      <aside className={`reader-panel${isPanelOpen ? " open" : ""}`}>
+        <button
+          type="button"
+          className="panel-close"
+          onClick={() => setIsPanelOpen(false)}
+          aria-label="Close reader controls"
+        >
+          <X size={20} />
+        </button>
+
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">
             <BookOpen size={22} />
@@ -99,75 +192,76 @@ function App() {
           </div>
         </form>
 
-        <div className="stepper" aria-label="Chapter navigation">
-          <button
-            type="button"
-            onClick={() => chooseChapter(chapter - 1)}
-            disabled={chapter <= 1}
-            aria-label="Previous psalm"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <strong>Psalm {chapter}</strong>
-          <button
-            type="button"
-            onClick={() => chooseChapter(chapter + 1)}
-            disabled={chapter >= PSALM_COUNT}
-            aria-label="Next psalm"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-
-        <div className="quick-grid" aria-label="Featured psalms">
-          {featuredChapters.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={item === chapter ? "active" : ""}
-              onClick={() => chooseChapter(item)}
-            >
-              {item}
-            </button>
-          ))}
-        </div>
-
-        <select
-          className="chapter-select"
-          value={chapter}
-          onChange={(event) => chooseChapter(Number(event.target.value))}
-          aria-label="Choose any psalm"
+        <button
+          type="button"
+          className={`favorite-toggle${isFavorite ? " active" : ""}`}
+          onClick={toggleFavorite}
+          aria-pressed={isFavorite}
         >
-          {chapterOptions.map((item) => (
-            <option key={item} value={item}>
-              Psalm {item}
-            </option>
-          ))}
-        </select>
+          <Star size={18} fill={isFavorite ? "currentColor" : "none"} />
+          <span>{isFavorite ? "Saved to favorites" : "Save this psalm"}</span>
+        </button>
+
+        <div className="favorites-block">
+          <div className="favorites-heading">
+            <span>Favorites</span>
+            <span>{favoriteChapters.length}</span>
+          </div>
+          {favoriteChapters.length ? (
+            <div className="favorites-grid" aria-label="Favorite psalms">
+              {favoriteChapters.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={item === chapter ? "active" : ""}
+                  onClick={() => chooseChapter(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="favorites-empty">Save a psalm to keep it here.</p>
+          )}
+        </div>
 
         <p className="source-note">
-          Hebrew and English are loaded from Sefaria. Transliteration is generated locally
-          from the Hebrew and simplified for readable Jewish pronunciation.
+          Hebrew word data is loaded locally from MACULA Hebrew (CC BY 4.0). English is
+          loaded from Sefaria.
         </p>
       </aside>
 
       <section className="text-area" aria-live="polite">
+        <button
+          type="button"
+          className={`page-nav page-nav-prev${isNearBottom ? " near-bottom" : ""}`}
+          onClick={() => chooseChapter(chapter - 1)}
+          disabled={chapter <= 1}
+          aria-label="Previous psalm"
+        >
+          <ChevronLeft size={28} />
+        </button>
+        <button
+          type="button"
+          className={`page-nav page-nav-next${isNearBottom ? " near-bottom" : ""}`}
+          onClick={() => chooseChapter(chapter + 1)}
+          disabled={chapter >= PSALM_COUNT}
+          aria-label="Next psalm"
+        >
+          <ChevronRight size={28} />
+        </button>
+
         <header className="text-header">
           <div>
             <p className="eyebrow">Sefer Tehilim</p>
             <h2>Psalm {chapter}</h2>
           </div>
-          {loadState.status === "loading" ? (
-            <span className="status">
-              <Loader2 size={18} className="spin" />
-              Loading
-            </span>
-          ) : (
-            <span className="status">
-              <Sparkles size={18} />
-              {loadState.verses.length} verses
-            </span>
-          )}
+            {loadState.status === "loading" ? (
+              <span className="status">
+                <Loader2 size={18} className="spin" />
+                Loading
+              </span>
+            ) : null}
         </header>
 
         {loadState.status === "error" ? (
@@ -177,7 +271,13 @@ function App() {
         ) : (
           <div className="verse-list">
             {loadState.verses.map((verse) => (
-              <VerseCard key={`${chapter}-${verse.number}`} verse={verse} />
+              <VerseCard
+                key={`${chapter}-${verse.number}`}
+                verse={verse}
+                chapter={chapter}
+                openWordId={openWordId}
+                setOpenWordId={setOpenWordId}
+              />
             ))}
           </div>
         )}
@@ -186,77 +286,255 @@ function App() {
   );
 }
 
-function VerseCard({ verse }: { verse: Verse }) {
-  const words = tokenizeHebrewWords(stripCantillation(verse.hebrew));
+function getInitialChapter(): number {
+  const params = new URLSearchParams(window.location.search);
+  const parsed = Number.parseInt(params.get("psalm") ?? "", 10);
+
+  if (!Number.isFinite(parsed)) {
+    return 1;
+  }
+
+  return Math.min(PSALM_COUNT, Math.max(1, parsed));
+}
+
+function setUrlChapter(chapter: number) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("psalm", String(chapter));
+  window.history.replaceState(null, "", url);
+}
+
+function loadFavorites(): number[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(FAVORITES_STORAGE_KEY) ?? "[]") as unknown;
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .filter((item): item is number => Number.isInteger(item) && item >= 1 && item <= PSALM_COUNT)
+      .filter((item, index, list) => list.indexOf(item) === index)
+      .sort((first, second) => first - second);
+  } catch (error) {
+    console.warn("Could not load favorites", error);
+    return [];
+  }
+}
+
+function saveFavorites(favorites: number[]) {
+  try {
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+  } catch (error) {
+    console.warn("Could not save favorites", error);
+  }
+}
+
+function VerseCard({
+  verse,
+  chapter,
+  openWordId,
+  setOpenWordId,
+}: {
+  verse: Verse;
+  chapter: number;
+  openWordId: string | null;
+  setOpenWordId: (wordId: string | null) => void;
+}) {
+  const words = verse.words ?? tokenizeHebrewWords(stripCantillation(verse.hebrew));
 
   return (
     <article className="verse-card">
       <div className="verse-number">{verse.number}</div>
       <div className="interlinear" dir="rtl" lang="he" aria-label={`Psalm verse ${verse.number}`}>
         {words.map((word, index) => (
-          <WordPair word={word} key={`${word}-${index}`} />
+          <WordPair
+            word={typeof word === "string" ? word : word.text}
+            maculaWord={typeof word === "string" ? undefined : word}
+            wordId={`${chapter}-${verse.number}-${index}`}
+            isDetailsOpen={openWordId === `${chapter}-${verse.number}-${index}`}
+            setOpenWordId={setOpenWordId}
+            key={`${typeof word === "string" ? word : word.text}-${index}`}
+          />
         ))}
       </div>
-      <p className="english">{verse.english}</p>
+      {verse.english ? (
+        <p className="translation">
+          <span>Translation</span>
+          {verse.english}
+        </p>
+      ) : null}
     </article>
   );
 }
 
-function WordPair({ word }: { word: string }) {
-  const localGloss = getLocalWordGloss(word);
-  const [remoteGloss, setRemoteGloss] = useState<string | null>(null);
-  const [isLoadingGloss, setIsLoadingGloss] = useState(!localGloss);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (localGloss) {
-      setRemoteGloss(null);
-      setIsLoadingGloss(false);
-      return;
-    }
-
-    setIsLoadingGloss(true);
-    getRemoteWordGloss(word)
-      .then((gloss) => {
-        if (!cancelled) {
-          setRemoteGloss(gloss);
-        }
-      })
-      .catch((error: unknown) => {
-        console.warn("Sefaria lexicon lookup failed", error);
-        if (!cancelled) {
-          setRemoteGloss(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsLoadingGloss(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [localGloss, word]);
-
-  const gloss = localGloss ?? remoteGloss ?? (isLoadingGloss ? "looking up" : "not found");
+function WordPair({
+  word,
+  maculaWord,
+  wordId,
+  isDetailsOpen,
+  setOpenWordId,
+}: {
+  word: string;
+  maculaWord?: MaculaWord;
+  wordId: string;
+  isDetailsOpen: boolean;
+  setOpenWordId: (wordId: string | null) => void;
+}) {
+  const lookupParts = useMemo(() => getLookupParts(word), [word]);
+  const transliterationParts = useMemo(
+    () => getTransliterationParts(word, lookupParts, maculaWord),
+    [lookupParts, maculaWord, word],
+  );
 
   return (
     <span className="word-pair">
+      <button
+        type="button"
+        className="word-trigger"
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpenWordId(isDetailsOpen ? null : wordId);
+        }}
+        aria-expanded={isDetailsOpen}
+      >
       <span className="hebrew-word">{word}</span>
-      <span className="transliteration" dir="ltr" lang="en">
-        {safeTransliterate(word)}
+      <span
+        className={`transliteration${transliterationParts.length > 1 ? " compound" : ""}`}
+        dir={transliterationParts.length > 1 ? "rtl" : "ltr"}
+        lang="en"
+      >
+        <CompoundParts parts={transliterationParts} className="transliteration-part" />
       </span>
-      <span className={`gloss${!localGloss && !remoteGloss ? " muted" : ""}`} dir="ltr" lang="en">
-        {gloss}
+      </button>
+      {isDetailsOpen && maculaWord ? (
+        <WordDetails word={word} maculaWord={maculaWord} onClose={() => setOpenWordId(null)} />
+      ) : null}
+    </span>
+  );
+}
+
+function WordDetails({
+  word,
+  maculaWord,
+  onClose,
+}: {
+  word: string;
+  maculaWord: MaculaWord;
+  onClose: () => void;
+}) {
+  return (
+    <span
+      className="word-popover"
+      dir="ltr"
+      lang="en"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="word-popover-header">
+        <span dir="rtl" lang="he">
+          {word}
+        </span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+          aria-label="Close word details"
+        >
+          <X size={16} />
+        </button>
+      </span>
+      <span className="word-popover-list">
+        {maculaWord.parts.map((part, index) => (
+          <span className="word-popover-row" key={`${part.text}-${index}`}>
+            <span dir="rtl" lang="he">
+              {part.text}
+            </span>
+            <span>{getPopoverPartPronunciation(part)}</span>
+            <strong>{getPopoverMeaning(part)}</strong>
+          </span>
+        ))}
       </span>
     </span>
   );
 }
 
+function getPopoverMeaning(part: MaculaWordPart): string {
+  const range = MEANING_RANGES[normalizeHebrew(part.lemma)] ?? MEANING_RANGES[normalizeHebrew(part.text)];
+
+  if (range?.length) {
+    return range.join(" / ");
+  }
+
+  return part.gloss || "-";
+}
+
+function normalizeHebrew(value: string): string {
+  return stripCantillation(value).replace(/[\u05B0-\u05BC\u05C1-\u05C2\u05C7]/g, "");
+}
+
+function getPopoverPartPronunciation(part: MaculaWordPart): string {
+  const transliteration = makeReadableTransliteration(part.transliteration);
+
+  if (transliteration) {
+    return transliteration;
+  }
+
+  if (part.pos === "suffix") {
+    return "[suffix]";
+  }
+
+  if (part.pos === "prefix") {
+    return "[prefix]";
+  }
+
+  if (part.pos === "verb" || part.pos === "noun" || part.pos === "adjective") {
+    return "[stem]";
+  }
+
+  return "[part]";
+}
+
+function CompoundParts({ parts, className }: { parts: string[]; className: string }) {
+  return parts.map((part, index) => (
+    <span className={`${className}-group`} dir="rtl" key={`${part}-${index}`}>
+      <span className={className} dir="ltr">
+        {part}
+      </span>
+      {index < parts.length - 1 ? (
+        <span className="compound-separator" aria-hidden="true">
+          -
+        </span>
+      ) : null}
+    </span>
+  ));
+}
+
 function tokenizeHebrewWords(value: string): string[] {
   return value.split(/\s+/).filter(Boolean);
+}
+
+function getLookupParts(word: string): string[] {
+  return word
+    .split(MAQQEF)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function getTransliterationParts(
+  word: string,
+  lookupParts: string[],
+  maculaWord?: MaculaWord,
+): string[] {
+  if (maculaWord?.parts.some((part) => stripCantillation(part.lemma) === "\u05D0\u05D3\u05E0\u05D9")) {
+    return ["Adonai"];
+  }
+
+  if (maculaWord?.transliteration.length) {
+    return maculaWord.transliteration.map(makeReadableTransliteration);
+  }
+
+  return lookupParts.map(safeTransliterate);
 }
 
 function safeTransliterate(value: string): string {
@@ -277,9 +555,10 @@ function stripCantillation(value: string): string {
 
 function makeReadableTransliteration(scholarly: string): string {
   return scholarly
+    .replace(/^adonai$/i, "Adonai")
     .replaceAll("yhwh", "Adonai")
     .replaceAll("Yhwh", "Adonai")
-    .replace(/\u02BE?\u0103?\u1E0F?\u014Dn\u0101y/gi, "Adonai")
+    .replace(/^\u02BE?\u0103?\u1E0F?\u014Dn\u0101y$/gi, "Adonai")
     .replace(/y[e\u0259]h[o\u014D]v[a\u0101]/gi, "Adonai")
     .replace(/\u02BE?\u0115?l\u014Dh\u00EEm/gi, "Elohim")
     .replace(/[\u02BE\u02BF]/g, "'")
@@ -300,6 +579,9 @@ function makeReadableTransliteration(scholarly: string): string {
     .replace(/\u1E21/g, "g")
     .replace(/\u1E6F/g, "t")
     .replace(/\u1E07/g, "v")
+    .replace(/iy/g, "i")
+    .replace(/q/g, "k")
+    .replace(/Q/g, "K")
     .replace(/w/g, "v")
     .replace(/W/g, "V")
     .replace(/p\u0304/g, "f")
@@ -307,6 +589,8 @@ function makeReadableTransliteration(scholarly: string): string {
     .replace(/[\uA723]/g, "")
     .replace(/'/g, "")
     .replace(/[\u05C3]/g, "")
+    .replace(/[\u1D2C-\u1D7F]/g, "")
+    .replace(/[:]/g, "")
     .replace(/shsh/g, "sh")
     .replace(/tztz/g, "tz")
     .replace(/chch/g, "ch")

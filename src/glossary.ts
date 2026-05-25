@@ -2,6 +2,8 @@ const STRIP_MARKS = /[\u0591-\u05C7]/g;
 const STRIP_PUNCTUATION = /[\u05BE\u05C3.,;:!?()[\]{}"']/g;
 
 const BASE_GLOSSES: Record<string, string> = {
+  "\u05E2\u05E6\u05D4": "counsel",
+  "\u05E2\u05E6\u05EA": "counsel of",
   אדני: "Adonai",
   אדוני: "Adonai",
   אלהים: "God",
@@ -126,6 +128,24 @@ const PREFIXES: Record<string, string> = {
   ה: "the",
 };
 
+const SUFFIXES = [
+  "\u05E0\u05D9",
+  "\u05EA\u05D9",
+  "\u05DB\u05DD",
+  "\u05DB\u05DF",
+  "\u05D9\u05DB\u05DD",
+  "\u05D9\u05DB\u05DF",
+  "\u05D9\u05D5",
+  "\u05D9\u05D4",
+  "\u05D9",
+  "\u05D5",
+  "\u05DA",
+  "\u05DB\u05DA",
+  "\u05DD",
+  "\u05DF",
+  "\u05D4",
+];
+
 type SefariaLexiconEntry = {
   parent_lexicon?: string;
   content?: {
@@ -186,12 +206,25 @@ function getPrefixedGloss(word: string): string | null {
   for (let length = prefixes.length; length > 0; length -= 1) {
     const prefix = word.slice(0, length);
     const base = word.slice(length);
-    const baseGloss = BASE_GLOSSES[base];
+    const baseGloss = BASE_GLOSSES[base] ?? getSuffixGloss(base);
 
     if (baseGloss) {
       return `${Array.from(prefix)
         .map((char) => PREFIXES[char])
         .join(" ")} ${baseGloss}`;
+    }
+  }
+
+  return null;
+}
+
+function getSuffixGloss(word: string): string | null {
+  for (const suffix of SUFFIXES) {
+    if (word.endsWith(suffix) && word.length - suffix.length >= 2) {
+      const base = word.slice(0, -suffix.length);
+      if (BASE_GLOSSES[base]) {
+        return BASE_GLOSSES[base];
+      }
     }
   }
 
@@ -212,18 +245,18 @@ async function fetchRemoteWordGloss(word: string): Promise<string | null> {
 }
 
 function getLookupCandidates(word: string): string[] {
-  const candidates = [word];
+  const candidates = new Set<string>([word]);
 
   for (let length = 1; length <= 2 && length < word.length - 1; length += 1) {
     const prefix = word.slice(0, length);
     const base = word.slice(length);
 
     if (Array.from(prefix).every((char) => PREFIXES[char])) {
-      candidates.push(base);
+      candidates.add(base);
     }
   }
 
-  return Array.from(new Set(candidates));
+  return Array.from(candidates);
 }
 
 async function fetchSefariaGloss(word: string): Promise<string | null> {
@@ -288,11 +321,37 @@ function addPrefixGloss(original: string, candidate: string, gloss: string): str
     return gloss;
   }
 
-  const prefix = original.slice(0, original.length - candidate.length);
+  const prefix = getMatchedPrefix(original, candidate);
   const prefixGloss = Array.from(prefix)
     .map((char) => PREFIXES[char])
     .filter(Boolean)
     .join(" ");
 
   return prefixGloss ? `${prefixGloss} ${gloss}` : gloss;
+}
+
+function getMatchedPrefix(original: string, candidate: string): string {
+  for (let length = 0; length <= 2 && length < original.length; length += 1) {
+    const prefix = original.slice(0, length);
+    if (!Array.from(prefix).every((char) => PREFIXES[char])) {
+      continue;
+    }
+
+    const remainder = original.slice(length);
+    if (remainder === candidate || stripKnownSuffix(remainder) === candidate) {
+      return prefix;
+    }
+  }
+
+  return "";
+}
+
+function stripKnownSuffix(word: string): string {
+  for (const suffix of SUFFIXES) {
+    if (word.endsWith(suffix) && word.length - suffix.length >= 2) {
+      return word.slice(0, -suffix.length);
+    }
+  }
+
+  return word;
 }
