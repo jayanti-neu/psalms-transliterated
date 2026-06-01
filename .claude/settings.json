@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const d=require\\('./public/data/psalms-macula.json'\\); const v=d.chapters['117']['1']; console.log\\(JSON.stringify\\(v[0], null, 2\\)\\); console.log\\('---'\\); console.log\\(JSON.stringify\\(v[1], null, 2\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./public/data/psalms-macula.json'\\); const seen=new Set\\(\\); for\\(const ch of Object.values\\(d.chapters\\)\\){for\\(const v of Object.values\\(ch\\)\\){for\\(const w of v\\){for\\(const p of w.parts\\){seen.add\\(p.pos\\)}}}} console.log\\(JSON.stringify\\([...seen]\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./public/data/psalms-macula.json'\\); const ch=d.chapters['117']; for\\(const [vn, words] of Object.entries\\(ch\\)\\){console.log\\('v'+vn, words.length, 'words'\\)}\")",
+      "Bash(node scripts/build-lemma-index.mjs)",
+      "Bash(node -e \"const d=require\\('./public/data/lemma-index.json'\\); console.log\\('lessonOrder[0..4]:', d.lessonOrder.slice\\(0,5\\)\\); console.log\\('psalm 117:', JSON.stringify\\(d.psalms['117']\\)\\); const sample = Object.values\\(d.lemmas\\).slice\\(0,5\\); console.log\\('top lemmas:'\\); for \\(const l of sample\\) console.log\\(' ', l.display, '-', l.gloss, '-', l.count, l.pos\\)\")",
+      "Bash(npx -p typescript@5.8.0 tsc --noEmit)",
+      "Bash(npx vite *)",
+      "Bash(curl -s http://127.0.0.1:5173/psalms-transliterated/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/data/lemma-index.json)",
+      "Bash(curl -s http://127.0.0.1:5173/psalms-transliterated/data/lemma-index.json)",
+      "Bash(curl -s http://127.0.0.1:5173/psalms-transliterated/src/LearningHub.tsx)",
+      "Bash(curl -s -o /dev/null -w \"LearningHub: %{http_code}\\\\nmain.tsx: \" http://127.0.0.1:5173/psalms-transliterated/src/LearningHub.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\nApp.tsx: \" http://127.0.0.1:5173/psalms-transliterated/src/main.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\nlearning.ts: \" http://127.0.0.1:5173/psalms-transliterated/src/App.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\nprogress.ts: \" http://127.0.0.1:5173/psalms-transliterated/src/learning.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/src/progress.ts)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"Hub: %{http_code}\\\\nLesson view JS: \" http://127.0.0.1:5173/psalms-transliterated/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\nforms.ts: \" http://127.0.0.1:5173/psalms-transliterated/src/LessonPhase1.tsx)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\ngrammarCards.ts: \" http://127.0.0.1:5173/psalms-transliterated/src/forms.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/src/grammarCards.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/)",
+      "Bash(git add *)"
+    ]
+  }
+}
