@@ -1074,6 +1074,12 @@ h2 {
   gap: 0 0.28rem;
 }
 
+/* Maqef-joined words are separate words read right-to-left, so give them a
+   wider gap than a normal space to avoid reading them as one ltr phrase. */
+.transliteration.compound {
+  gap: 0 0.8rem;
+}
+
 .transliteration-part-group,
 .gloss-part-group {
   display: inline-flex;
