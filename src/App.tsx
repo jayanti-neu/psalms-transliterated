@@ -62,6 +62,10 @@ function App() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [view, lessonChapter, wordStudyTarget]);
+
   function startLesson(chapter: number) {
     setLessonChapter(chapter);
     setUrlView("lesson", chapter);
@@ -179,6 +183,10 @@ function Reader({ progress, setProgress, onBackToHub, onOpenWordStudy }: ReaderP
     return () => {
       cancelled = true;
     };
+  }, [chapter]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
   }, [chapter]);
 
   useEffect(() => {
@@ -943,16 +951,14 @@ function getPopoverPartPronunciation(part: MaculaWordPart): string {
 }
 
 function CompoundParts({ parts, className }: { parts: string[]; className: string }) {
+  // Maqef-joined words are rendered as separate segments spaced apart by the
+  // flex gap on the container (a normal word space). The hyphen for the maqef
+  // itself is intentionally omitted — it only affects pronunciation.
   return parts.map((part, index) => (
     <span className={`${className}-group`} dir="rtl" key={`${part}-${index}`}>
       <span className={className} dir="ltr">
         {part}
       </span>
-      {index < parts.length - 1 ? (
-        <span className="compound-separator" aria-hidden="true">
-          -
-        </span>
-      ) : null}
     </span>
   ));
 }
@@ -969,6 +975,20 @@ function getLookupParts(word: string): string[] {
 }
 
 function getTransliterationParts(
+  word: string,
+  lookupParts: string[],
+  maculaWord?: MaculaWord,
+): string[] {
+  // Each segment is one whole word; maqef-joined words are separate segments
+  // (rendered with a space). Spaces *within* a segment separate the grammar
+  // pieces of a single word (conjunction/preposition/article + stem), so we
+  // join those with a hyphen and no space.
+  return getTransliterationSegments(word, lookupParts, maculaWord).map((segment) =>
+    segment.replace(/\s+/g, "-"),
+  );
+}
+
+function getTransliterationSegments(
   word: string,
   lookupParts: string[],
   maculaWord?: MaculaWord,

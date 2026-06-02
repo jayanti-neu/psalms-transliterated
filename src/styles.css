@@ -1081,10 +1081,6 @@ h2 {
   gap: 0.28rem;
 }
 
-.compound-separator {
-  color: inherit;
-}
-
 .gloss.muted {
   color: #9a8f7f;
   font-style: italic;
