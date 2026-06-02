@@ -345,10 +345,27 @@ function VerseCard({
   setOpenWordId: (wordId: string | null) => void;
 }) {
   const words = verse.words ?? tokenizeHebrewWords(stripCantillation(verse.hebrew));
+  const [showTranslation, setShowTranslation] = useState(false);
 
   return (
     <article className="verse-card">
-      <div className="verse-number">{verse.number}</div>
+      <button
+        type="button"
+        className={`verse-number${showTranslation ? " active" : ""}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          setShowTranslation((current) => !current);
+        }}
+        aria-expanded={showTranslation}
+        aria-label={
+          showTranslation
+            ? `Hide translation for verse ${verse.number}`
+            : `Show translation for verse ${verse.number}`
+        }
+        title={showTranslation ? "Hide translation" : "Show translation"}
+      >
+        {verse.number}
+      </button>
       <div className="interlinear" dir="rtl" lang="he" aria-label={`Psalm verse ${verse.number}`}>
         {words.map((word, index) => (
           <WordPair
@@ -361,7 +378,7 @@ function VerseCard({
           />
         ))}
       </div>
-      {verse.english ? (
+      {showTranslation && verse.english ? (
         <p className="translation">
           <span>Translation</span>
           {verse.english}

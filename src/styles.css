@@ -360,6 +360,7 @@ h2 {
   left: 18px;
   width: 34px;
   height: 34px;
+  border: 1px solid transparent;
   border-radius: 999px;
   display: grid;
   place-items: center;
@@ -367,6 +368,21 @@ h2 {
   color: #395a52;
   font-weight: 900;
   font-size: 0.9rem;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.verse-number:hover,
+.verse-number:focus-visible {
+  border-color: #b49b66;
+  color: #16352f;
+}
+
+.verse-number.active {
+  background: #f0c25d;
+  color: #16352f;
 }
 
 .interlinear {
