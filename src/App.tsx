@@ -1,9 +1,7 @@
 import {
   BookOpen,
-  Check,
   ChevronLeft,
   ChevronRight,
-  Home,
   Loader2,
   Menu,
   Search,
@@ -12,16 +10,7 @@ import {
 } from "lucide-react";
 import { transliterate } from "hebrew-transliteration";
 import { useEffect, useMemo, useState } from "react";
-import LearningHub from "./LearningHub";
-import LessonPhase1 from "./LessonPhase1";
-import { normalizeLemma } from "./learning";
 import type { MaculaWord, MaculaWordPart } from "./macula";
-import {
-  loadProgress,
-  markLemmaKnown,
-  unmarkLemmaKnown,
-  type Progress,
-} from "./progress";
 import { fetchPsalm, type Verse } from "./sefaria";
 
 const PSALM_COUNT = 150;
@@ -42,106 +31,7 @@ type LoadState =
   | { status: "ready"; verses: Verse[]; error: "" }
   | { status: "error"; verses: Verse[]; error: string };
 
-type WordStudyTarget = {
-  word: string;
-  maculaWord: MaculaWord;
-};
-
 function App() {
-  const [view, setView] = useState<"hub" | "lesson" | "reader" | "word">(() => getInitialView());
-  const [lessonChapter, setLessonChapter] = useState<number>(() => getInitialChapter());
-  const [progress, setProgress] = useState<Progress>(() => loadProgress());
-  const [wordStudyTarget, setWordStudyTarget] = useState<WordStudyTarget | null>(null);
-
-  useEffect(() => {
-    function handlePop() {
-      setView(getInitialView());
-      setLessonChapter(getInitialChapter());
-    }
-    window.addEventListener("popstate", handlePop);
-    return () => window.removeEventListener("popstate", handlePop);
-  }, []);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0 });
-  }, [view, lessonChapter, wordStudyTarget]);
-
-  function startLesson(chapter: number) {
-    setLessonChapter(chapter);
-    setUrlView("lesson", chapter);
-    setView("lesson");
-  }
-
-  function browseToReader(chapter: number) {
-    setUrlView("reader", chapter);
-    setView("reader");
-  }
-
-  function openReaderFromLesson(chapter: number) {
-    setUrlView("reader", chapter);
-    setView("reader");
-  }
-
-  function backToHub() {
-    clearUrlState();
-    setView("hub");
-  }
-
-  function openWordStudy(target: WordStudyTarget) {
-    setWordStudyTarget(target);
-    setView("word");
-  }
-
-  if (view === "hub") {
-    return (
-      <LearningHub
-        progress={progress}
-        onStartLesson={startLesson}
-        onBrowse={() => browseToReader(1)}
-      />
-    );
-  }
-
-  if (view === "lesson") {
-    return (
-      <LessonPhase1
-        progress={progress}
-        setProgress={setProgress}
-        onReadPsalm={openReaderFromLesson}
-        onBackToHub={backToHub}
-      />
-    );
-  }
-
-  if (view === "word" && wordStudyTarget) {
-    return (
-      <WordStudyPage
-        target={wordStudyTarget}
-        progress={progress}
-        setProgress={setProgress}
-        onBack={() => setView("reader")}
-      />
-    );
-  }
-
-  return (
-    <Reader
-      progress={progress}
-      setProgress={setProgress}
-      onBackToHub={backToHub}
-      onOpenWordStudy={openWordStudy}
-    />
-  );
-}
-
-type ReaderProps = {
-  progress: Progress;
-  setProgress: (next: Progress) => void;
-  onBackToHub: () => void;
-  onOpenWordStudy: (target: WordStudyTarget) => void;
-};
-
-function Reader({ progress, setProgress, onBackToHub, onOpenWordStudy }: ReaderProps) {
   const initialChapter = getInitialChapter();
   const [chapter, setChapter] = useState(initialChapter);
   const [typedChapter, setTypedChapter] = useState(String(initialChapter));
@@ -250,16 +140,6 @@ function Reader({ progress, setProgress, onBackToHub, onOpenWordStudy }: ReaderP
 
   return (
     <main className={`app-shell${isDesktopPanelHidden ? " panel-hidden" : ""}`}>
-      <button
-        type="button"
-        className="back-to-hub"
-        onClick={onBackToHub}
-        aria-label="Back to learning hub"
-        title="Back to learning hub"
-      >
-        <Home size={18} />
-      </button>
-
       <button
         type="button"
         className="desktop-panel-toggle"
@@ -401,15 +281,6 @@ function Reader({ progress, setProgress, onBackToHub, onOpenWordStudy }: ReaderP
                 chapter={chapter}
                 openWordId={openWordId}
                 setOpenWordId={setOpenWordId}
-                progress={progress}
-                onToggleKnown={(lemma) => {
-                  setProgress(
-                    progress.knownLemmas.includes(lemma)
-                      ? unmarkLemmaKnown(progress, lemma)
-                      : markLemmaKnown(progress, lemma),
-                  );
-                }}
-                onOpenWordStudy={onOpenWordStudy}
               />
             ))}
           </div>
@@ -417,14 +288,6 @@ function Reader({ progress, setProgress, onBackToHub, onOpenWordStudy }: ReaderP
       </section>
     </main>
   );
-}
-
-function getInitialView(): "hub" | "lesson" | "reader" | "word" {
-  const params = new URLSearchParams(window.location.search);
-  const view = params.get("view");
-  if (view === "lesson" && params.has("psalm")) return "lesson";
-  if (params.has("psalm")) return "reader";
-  return "hub";
 }
 
 function getInitialChapter(): number {
@@ -441,25 +304,6 @@ function getInitialChapter(): number {
 function setUrlChapter(chapter: number) {
   const url = new URL(window.location.href);
   url.searchParams.set("psalm", String(chapter));
-  url.searchParams.delete("view");
-  window.history.replaceState(null, "", url);
-}
-
-function setUrlView(view: "lesson" | "reader", chapter: number) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("psalm", String(chapter));
-  if (view === "lesson") {
-    url.searchParams.set("view", "lesson");
-  } else {
-    url.searchParams.delete("view");
-  }
-  window.history.replaceState(null, "", url);
-}
-
-function clearUrlState() {
-  const url = new URL(window.location.href);
-  url.searchParams.delete("psalm");
-  url.searchParams.delete("view");
   window.history.replaceState(null, "", url);
 }
 
@@ -494,17 +338,11 @@ function VerseCard({
   chapter,
   openWordId,
   setOpenWordId,
-  progress,
-  onToggleKnown,
-  onOpenWordStudy,
 }: {
   verse: Verse;
   chapter: number;
   openWordId: string | null;
   setOpenWordId: (wordId: string | null) => void;
-  progress: Progress;
-  onToggleKnown: (lemma: string) => void;
-  onOpenWordStudy: (target: WordStudyTarget) => void;
 }) {
   const words = verse.words ?? tokenizeHebrewWords(stripCantillation(verse.hebrew));
 
@@ -519,9 +357,6 @@ function VerseCard({
             wordId={`${chapter}-${verse.number}-${index}`}
             isDetailsOpen={openWordId === `${chapter}-${verse.number}-${index}`}
             setOpenWordId={setOpenWordId}
-            progress={progress}
-            onToggleKnown={onToggleKnown}
-            onOpenWordStudy={onOpenWordStudy}
             key={`${typeof word === "string" ? word : word.text}-${index}`}
           />
         ))}
@@ -542,36 +377,21 @@ function WordPair({
   wordId,
   isDetailsOpen,
   setOpenWordId,
-  progress,
-  onToggleKnown,
-  onOpenWordStudy,
 }: {
   word: string;
   maculaWord?: MaculaWord;
   wordId: string;
   isDetailsOpen: boolean;
   setOpenWordId: (wordId: string | null) => void;
-  progress: Progress;
-  onToggleKnown: (lemma: string) => void;
-  onOpenWordStudy: (target: WordStudyTarget) => void;
 }) {
   const lookupParts = useMemo(() => getLookupParts(word), [word]);
   const transliterationParts = useMemo(
     () => getTransliterationParts(word, lookupParts, maculaWord),
     [lookupParts, maculaWord, word],
   );
-  const allLemmasKnown = useMemo(() => {
-    if (!maculaWord) return false;
-    const learnable = maculaWord.parts
-      .filter((part) => part.pos !== "suffix")
-      .map((part) => normalizeLemma(part.lemma))
-      .filter(Boolean);
-    if (!learnable.length) return false;
-    return learnable.every((lemma) => progress.knownLemmas.includes(lemma));
-  }, [maculaWord, progress.knownLemmas]);
 
   return (
-    <span className={`word-pair${allLemmasKnown ? " known" : ""}`}>
+    <span className="word-pair">
       <button
         type="button"
         className="word-trigger"
@@ -591,14 +411,7 @@ function WordPair({
       </span>
       </button>
       {isDetailsOpen && maculaWord ? (
-        <WordDetails
-          word={word}
-          maculaWord={maculaWord}
-          onClose={() => setOpenWordId(null)}
-          progress={progress}
-          onToggleKnown={onToggleKnown}
-          onOpenWordStudy={onOpenWordStudy}
-        />
+        <WordDetails word={word} maculaWord={maculaWord} onClose={() => setOpenWordId(null)} />
       ) : null}
     </span>
   );
@@ -608,16 +421,10 @@ function WordDetails({
   word,
   maculaWord,
   onClose,
-  progress,
-  onToggleKnown,
-  onOpenWordStudy,
 }: {
   word: string;
   maculaWord: MaculaWord;
   onClose: () => void;
-  progress: Progress;
-  onToggleKnown: (lemma: string) => void;
-  onOpenWordStudy: (target: WordStudyTarget) => void;
 }) {
   return (
     <span
@@ -641,277 +448,19 @@ function WordDetails({
           <X size={16} />
         </button>
       </span>
-      <button
-        type="button"
-        className="word-more"
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenWordStudy({ word, maculaWord });
-        }}
-      >
-        More word details
-        <ChevronRight size={15} />
-      </button>
       <span className="word-popover-list">
-        {maculaWord.parts.map((part, index) => {
-          const lemmaKey = normalizeLemma(part.lemma);
-          const canMark = Boolean(lemmaKey) && part.pos !== "suffix";
-          const isKnown = canMark && progress.knownLemmas.includes(lemmaKey);
-
-          return (
-            <span className="word-popover-row" key={`${part.text}-${index}`}>
-              <span dir="rtl" lang="he">
-                {part.text}
-              </span>
-              <span>{getPopoverPartPronunciation(part)}</span>
-              <strong>{getPopoverMeaning(part)}</strong>
-              {canMark ? (
-                <button
-                  type="button"
-                  className={`known-toggle${isKnown ? " active" : ""}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onToggleKnown(lemmaKey);
-                  }}
-                  aria-pressed={isKnown}
-                  aria-label={isKnown ? "Marked as known — click to unmark" : "Mark as known"}
-                  title={isKnown ? "Known" : "Mark as known"}
-                >
-                  <Check size={14} />
-                </button>
-              ) : (
-                <span aria-hidden="true" />
-              )}
+        {maculaWord.parts.map((part, index) => (
+          <span className="word-popover-row" key={`${part.text}-${index}`}>
+            <span dir="rtl" lang="he">
+              {part.text}
             </span>
-          );
-        })}
+            <span>{getPopoverPartPronunciation(part)}</span>
+            <strong>{getPopoverMeaning(part)}</strong>
+          </span>
+        ))}
       </span>
     </span>
   );
-}
-
-function WordStudyPage({
-  target,
-  progress,
-  setProgress,
-  onBack,
-}: {
-  target: WordStudyTarget;
-  progress: Progress;
-  setProgress: (next: Progress) => void;
-  onBack: () => void;
-}) {
-  const primaryPart = getPrimaryLexicalPart(target.maculaWord);
-  const primaryLemma = primaryPart ? normalizeLemma(primaryPart.lemma) : "";
-  const dictionaryForm = primaryPart ? getDictionaryForm(primaryPart) : "";
-  const isKnown = Boolean(primaryLemma) && progress.knownLemmas.includes(primaryLemma);
-
-  function toggleKnown() {
-    if (!primaryLemma) return;
-    setProgress(
-      isKnown ? unmarkLemmaKnown(progress, primaryLemma) : markLemmaKnown(progress, primaryLemma),
-    );
-  }
-
-  return (
-    <main className="word-study-shell">
-      <div className="word-study-inner">
-        <header className="word-study-header">
-          <button type="button" className="lesson-back" onClick={onBack} aria-label="Back to reader">
-            <ChevronLeft size={16} />
-          </button>
-          <div>
-            <p className="eyebrow">Word study</p>
-            <h1 dir="rtl" lang="he">
-              {target.word}
-            </h1>
-          </div>
-        </header>
-
-        {primaryPart ? (
-          <section className="word-study-card">
-            <h2>Core meaning</h2>
-            <dl className="word-study-facts">
-              <div>
-                <dt>Meaning</dt>
-                <dd>{getPopoverMeaning(primaryPart)}</dd>
-              </div>
-              <div>
-                <dt>Pronunciation</dt>
-                <dd>{getPopoverPartPronunciation(primaryPart)}</dd>
-              </div>
-              <div>
-                <dt>Lemma</dt>
-                <dd dir="rtl" lang="he">
-                  {primaryPart.lemma || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt>Dictionary form</dt>
-                <dd dir="rtl" lang="he">
-                  {dictionaryForm || "-"}
-                </dd>
-              </div>
-              <div>
-                <dt>Word type</dt>
-                <dd>{formatWordType(primaryPart)}</dd>
-              </div>
-              <div>
-                <dt>Form</dt>
-                <dd>{describeMorphology(primaryPart)}</dd>
-              </div>
-            </dl>
-
-            {primaryLemma ? (
-              <button
-                type="button"
-                className={`word-study-known${isKnown ? " active" : ""}`}
-                onClick={toggleKnown}
-                aria-pressed={isKnown}
-              >
-                <Check size={16} />
-                {isKnown ? "Known" : "Mark as known"}
-              </button>
-            ) : null}
-          </section>
-        ) : null}
-
-        <section className="word-study-card">
-          <h2>Parts in this word</h2>
-          <div className="word-study-parts">
-            {target.maculaWord.parts.map((part, index) => (
-              <article key={`${part.text}-${index}`}>
-                <strong dir="rtl" lang="he">
-                  {part.text || target.word}
-                </strong>
-                <span>{getPopoverPartPronunciation(part)}</span>
-                <span>{getPopoverMeaning(part)}</span>
-                <small>
-                  {formatWordType(part)}
-                  {part.morph ? ` · ${describeMorphology(part)}` : ""}
-                </small>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="word-study-card">
-          <h2>Root notes</h2>
-          <dl className="word-study-facts">
-            <div>
-              <dt>Root</dt>
-              <dd>{getRootStatus(primaryPart)}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>Not yet sourced</dd>
-            </div>
-          </dl>
-          <p>
-            A true Hebrew root is not always the same thing as the dictionary form. This app should
-            add a sourced root field before giving root notes, related words, gematria, or commentary
-            here.
-          </p>
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function getDictionaryForm(part: MaculaWordPart): string {
-  return stripCantillation(part.lemma || part.text || "").trim();
-}
-
-function getRootStatus(part?: MaculaWordPart): string {
-  if (!part) return "Unavailable";
-  if (part.pos === "verb") return "Needs sourced shoresh data";
-  if (part.pos === "noun" || part.pos === "adjective") return "Dictionary form shown above; root not yet sourced";
-  return "Not applicable for this word part";
-}
-
-function getPrimaryLexicalPart(maculaWord: MaculaWord): MaculaWordPart | undefined {
-  return (
-    maculaWord.parts.find((part) => ["verb", "noun", "adjective"].includes(part.pos)) ??
-    maculaWord.parts.find((part) => part.pos !== "prefix" && part.pos !== "suffix") ??
-    maculaWord.parts[0]
-  );
-}
-
-function formatWordType(part: MaculaWordPart): string {
-  if (part.pos === "noun") return "noun";
-  if (part.pos === "verb") return "verb";
-  if (part.pos === "adjective") return "describing word";
-  if (part.pos === "preposition") return "preposition";
-  if (part.pos === "conjunction") return "connector";
-  if (part.pos === "particle") return "particle";
-  if (part.pos === "pronoun") return "pronoun";
-  if (part.pos === "suffix") return "suffix";
-  if (part.pos === "prefix") return "prefix";
-  return part.pos || "word part";
-}
-
-function describeMorphology(part: MaculaWordPart): string {
-  const morph = part.morph ?? "";
-
-  if (part.pos === "noun" && morph.startsWith("N")) {
-    if (morph.startsWith("Np")) return "proper name";
-    if (morph.length >= 5 && morph[1] === "c") {
-      const gender = morph[2] === "m" ? "masculine" : morph[2] === "f" ? "feminine" : "common";
-      const number = morph[3] === "s" ? "singular" : morph[3] === "p" ? "plural" : "dual";
-      const state =
-        morph[4] === "c" ? "construct form" : morph[4] === "a" ? "standalone form" : "determined form";
-      return `${gender}, ${number}, ${state}`;
-    }
-  }
-
-  if (part.pos === "verb" && morph.startsWith("V") && morph.length >= 3) {
-    const stem = getVerbStemName(morph[1]);
-    const aspect = getVerbAspectName(morph[2]);
-    const tail = morph.slice(3);
-    return [stem, aspect, describePersonGenderNumber(tail)].filter(Boolean).join(", ");
-  }
-
-  if (part.pos === "suffix" && morph.startsWith("Sp")) {
-    return `pronoun suffix: ${describePersonGenderNumber(morph.slice(2))}`;
-  }
-
-  if (part.pos === "particle" && morph === "Td") return "attached definite article";
-  if (part.pos === "particle" && morph === "To") return "direct object marker";
-  if (part.pos === "preposition") return "small relationship word";
-  if (part.pos === "conjunction") return "connector";
-
-  return morph || "form details unavailable";
-}
-
-function getVerbStemName(code: string): string {
-  if (code === "q") return "qal/basic stem";
-  if (code === "n") return "niphal stem";
-  if (code === "p") return "piel stem";
-  if (code === "P") return "pual stem";
-  if (code === "h") return "hiphil stem";
-  if (code === "H") return "hophal stem";
-  if (code === "t") return "hithpael stem";
-  return "";
-}
-
-function getVerbAspectName(code: string): string {
-  if (code === "p") return "completed action";
-  if (code === "q") return "incomplete/future action";
-  if (code === "w") return "narrative past form";
-  if (code === "v") return "command";
-  if (code === "i") return "infinitive/to-do form";
-  if (code === "a") return "absolute infinitive";
-  if (code === "r") return "active participle";
-  if (code === "s") return "passive participle";
-  return "";
-}
-
-function describePersonGenderNumber(value: string): string {
-  if (value.length < 2) return "";
-  const person = value[0] === "1" ? "1st person" : value[0] === "2" ? "2nd person" : value[0] === "3" ? "3rd person" : "";
-  const gender = value[1] === "m" ? "masculine" : value[1] === "f" ? "feminine" : value[1] === "c" ? "common" : "";
-  const number = value[2] === "s" ? "singular" : value[2] === "p" ? "plural" : value[2] === "d" ? "dual" : "";
-  return [person, gender, number].filter(Boolean).join(" ");
 }
 
 function getPopoverMeaning(part: MaculaWordPart): string {
