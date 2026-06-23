@@ -207,6 +207,73 @@ h2 {
   color: #16352f;
 }
 
+.account-block {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid rgba(255, 253, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 253, 245, 0.06);
+}
+
+.account-info {
+  display: grid;
+  gap: 3px;
+}
+
+.account-name {
+  font-weight: 800;
+  color: #fffdf5;
+  overflow-wrap: anywhere;
+}
+
+.account-status {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: rgba(255, 253, 245, 0.7);
+}
+
+.account-error {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #f3b0a0;
+  overflow-wrap: anywhere;
+}
+
+.account-action {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 253, 245, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 253, 245, 0.12);
+  color: #fffdf5;
+  font-weight: 800;
+}
+
+.account-action:hover,
+.account-action:focus-visible {
+  background: rgba(255, 253, 245, 0.2);
+}
+
+.account-action.primary {
+  background: #f0c25d;
+  border-color: #f0c25d;
+  color: #16352f;
+}
+
+.account-action.primary:hover,
+.account-action.primary:focus-visible {
+  background: #f3cb74;
+}
+
 .favorites-block {
   display: grid;
   gap: 10px;

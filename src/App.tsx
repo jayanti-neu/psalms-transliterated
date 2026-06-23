@@ -4,6 +4,8 @@ import {
   ChevronRight,
   Languages,
   Loader2,
+  LogIn,
+  LogOut,
   Menu,
   NotebookPen,
   ScrollText,
@@ -14,13 +16,21 @@ import {
   X,
 } from "lucide-react";
 import { transliterate } from "hebrew-transliteration";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   COMMENTATORS,
   fetchVerseCommentary,
   type CommentarySource,
   type VerseCommentary,
 } from "./commentary";
+import {
+  signInWithGoogle,
+  signOutUser,
+  subscribeUserDoc,
+  watchAuth,
+  writeUserDoc,
+  type User,
+} from "./firebase";
 import type { MaculaWord, MaculaWordPart } from "./macula";
 import {
   getPsalmNotes,
@@ -31,6 +41,7 @@ import {
   type NotesStore,
 } from "./notes";
 import { fetchPsalm, type Verse } from "./sefaria";
+import { mergeSyncData, type SyncData } from "./sync";
 
 const PSALM_COUNT = 150;
 const FAVORITES_STORAGE_KEY = "tehilim-reader:favorites";
@@ -66,11 +77,24 @@ function App() {
   const [showAllTranslations, setShowAllTranslations] = useState(false);
   const [favoriteChapters, setFavoriteChapters] = useState<number[]>(() => loadFavorites());
   const [notes, setNotes] = useState<NotesStore>(() => loadNotes());
+  const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string>("");
   const [loadState, setLoadState] = useState<LoadState>({
     status: "loading",
     verses: [],
     error: "",
   });
+
+  // Keep the latest favorites/notes reachable from the sign-in merge, which
+  // runs in an effect keyed only on `user` and would otherwise see stale values.
+  const favoritesRef = useRef(favoriteChapters);
+  const notesRef = useRef(notes);
+  favoritesRef.current = favoriteChapters;
+  notesRef.current = notes;
+  // Serialized payload we last reconciled with the cloud, so we don't write
+  // back data we just received (which would loop) or write unchanged data.
+  const lastSyncedRef = useRef<string>("");
+  const mergedOnceRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +129,70 @@ function App() {
     window.scrollTo({ top: 0, left: 0 });
   }, [chapter]);
 
+  // Track the signed-in user.
+  useEffect(() => watchAuth(setUser), []);
+
+  // While signed in, keep favorites + notes in sync with the cloud. On first
+  // connect we merge this device's data with the cloud (so nothing is lost);
+  // afterwards, remote changes from another device flow in here.
+  useEffect(() => {
+    mergedOnceRef.current = false;
+    if (!user) {
+      return;
+    }
+
+    const unsubscribe = subscribeUserDoc(user.uid, (remote) => {
+      if (!mergedOnceRef.current) {
+        mergedOnceRef.current = true;
+        const local: SyncData = { favorites: favoritesRef.current, notes: notesRef.current };
+        const merged = mergeSyncData(local, remote as Partial<SyncData> | undefined);
+
+        lastSyncedRef.current = JSON.stringify(merged);
+        applySyncData(merged);
+        writeUserDoc(user.uid, merged).catch((error) =>
+          console.warn("Could not write merged sync data", error),
+        );
+        return;
+      }
+
+      if (!remote) {
+        return;
+      }
+
+      const incoming: SyncData = {
+        favorites: (remote.favorites as number[]) ?? [],
+        notes: (remote.notes as NotesStore) ?? {},
+      };
+      lastSyncedRef.current = JSON.stringify(incoming);
+      applySyncData(incoming);
+    });
+
+    return () => unsubscribe();
+    // applySyncData is stable (defined in component scope, no deps captured).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Push local favorites/notes changes up to the cloud (debounced), once the
+  // initial merge has happened. Skips data we just received to avoid loops.
+  useEffect(() => {
+    if (!user || !mergedOnceRef.current) {
+      return;
+    }
+
+    const payload = JSON.stringify({ favorites: favoriteChapters, notes });
+    if (payload === lastSyncedRef.current) {
+      return;
+    }
+    lastSyncedRef.current = payload;
+
+    const timer = setTimeout(() => {
+      writeUserDoc(user.uid, { favorites: favoriteChapters, notes }).catch((error) =>
+        console.warn("Could not sync to cloud", error),
+      );
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [favoriteChapters, notes, user]);
 
   useEffect(() => {
     function closeWordDetails() {
@@ -166,6 +254,29 @@ function App() {
     });
   }
 
+  // Apply a synced snapshot to state and local storage (without re-triggering a
+  // cloud write — the sync effects guard that via lastSyncedRef).
+  function applySyncData(data: SyncData) {
+    setFavoriteChapters(data.favorites);
+    saveFavorites(data.favorites);
+    setNotes(data.notes);
+    saveNotes(data.notes);
+  }
+
+  function handleSignIn() {
+    setAuthError("");
+    signInWithGoogle().catch((error: unknown) => {
+      const code = (error as { code?: string })?.code;
+      const message = (error as { message?: string })?.message;
+      setAuthError(code ?? message ?? "Sign-in failed.");
+      console.warn("Sign-in failed", error);
+    });
+  }
+
+  function handleSignOut() {
+    signOutUser().catch((error) => console.warn("Sign-out failed", error));
+  }
+
   function updatePsalmNote(text: string) {
     setNotes((current) => {
       const next = withPsalmNote(current, chapter, text);
@@ -223,6 +334,33 @@ function App() {
             <p className="eyebrow">Tanakh / Ketuvim</p>
             <h1>Tehilim Reader</h1>
           </div>
+        </div>
+
+        <div className="account-block">
+          {user ? (
+            <>
+              <div className="account-info">
+                <span className="account-name">{user.displayName ?? user.email ?? "Signed in"}</span>
+                <span className="account-status">Notes &amp; favorites sync across your devices</span>
+              </div>
+              <button type="button" className="account-action" onClick={handleSignOut}>
+                <LogOut size={16} />
+                <span>Sign out</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="account-action primary" onClick={handleSignIn}>
+                <LogIn size={16} />
+                <span>Sign in with Google</span>
+              </button>
+              {authError ? (
+                <p className="account-error">{authError}</p>
+              ) : (
+                <p className="account-status">Sign in to sync notes &amp; favorites across devices.</p>
+              )}
+            </>
+          )}
         </div>
 
         <form className="chapter-search" onSubmit={submitTypedChapter}>
