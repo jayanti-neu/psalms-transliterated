@@ -50,13 +50,18 @@ export function signOutUser(): Promise<void> {
 export function subscribeUserDoc(
   uid: string,
   onData: (data: DocumentData | undefined) => void,
+  onError?: (error: unknown) => void,
 ): () => void {
-  return onSnapshot(doc(db, "users", uid), (snapshot) => {
-    if (snapshot.metadata.hasPendingWrites) {
-      return;
-    }
-    onData(snapshot.exists() ? snapshot.data() : undefined);
-  });
+  return onSnapshot(
+    doc(db, "users", uid),
+    (snapshot) => {
+      if (snapshot.metadata.hasPendingWrites) {
+        return;
+      }
+      onData(snapshot.exists() ? snapshot.data() : undefined);
+    },
+    (error) => onError?.(error),
+  );
 }
 
 export function writeUserDoc(uid: string, data: DocumentData): Promise<void> {

@@ -79,6 +79,7 @@ function App() {
   const [notes, setNotes] = useState<NotesStore>(() => loadNotes());
   const [user, setUser] = useState<User | null>(null);
   const [authError, setAuthError] = useState<string>("");
+  const [syncError, setSyncError] = useState<string>("");
   const [loadState, setLoadState] = useState<LoadState>({
     status: "loading",
     verses: [],
@@ -141,31 +142,41 @@ function App() {
       return;
     }
 
-    const unsubscribe = subscribeUserDoc(user.uid, (remote) => {
-      if (!mergedOnceRef.current) {
-        mergedOnceRef.current = true;
-        const local: SyncData = { favorites: favoritesRef.current, notes: notesRef.current };
-        const merged = mergeSyncData(local, remote as Partial<SyncData> | undefined);
+    setSyncError("");
+    const unsubscribe = subscribeUserDoc(
+      user.uid,
+      (remote) => {
+        setSyncError("");
+        if (!mergedOnceRef.current) {
+          mergedOnceRef.current = true;
+          const local: SyncData = { favorites: favoritesRef.current, notes: notesRef.current };
+          const merged = mergeSyncData(local, remote as Partial<SyncData> | undefined);
 
-        lastSyncedRef.current = JSON.stringify(merged);
-        applySyncData(merged);
-        writeUserDoc(user.uid, merged).catch((error) =>
-          console.warn("Could not write merged sync data", error),
-        );
-        return;
-      }
+          lastSyncedRef.current = JSON.stringify(merged);
+          applySyncData(merged);
+          writeUserDoc(user.uid, merged).catch((error: unknown) => {
+            setSyncError((error as { code?: string })?.code ?? "Could not save to cloud.");
+            console.warn("Could not write merged sync data", error);
+          });
+          return;
+        }
 
-      if (!remote) {
-        return;
-      }
+        if (!remote) {
+          return;
+        }
 
-      const incoming: SyncData = {
-        favorites: (remote.favorites as number[]) ?? [],
-        notes: (remote.notes as NotesStore) ?? {},
-      };
-      lastSyncedRef.current = JSON.stringify(incoming);
-      applySyncData(incoming);
-    });
+        const incoming: SyncData = {
+          favorites: (remote.favorites as number[]) ?? [],
+          notes: (remote.notes as NotesStore) ?? {},
+        };
+        lastSyncedRef.current = JSON.stringify(incoming);
+        applySyncData(incoming);
+      },
+      (error: unknown) => {
+        setSyncError((error as { code?: string })?.code ?? "Sync connection failed.");
+        console.warn("Sync subscription error", error);
+      },
+    );
 
     return () => unsubscribe();
     // applySyncData is stable (defined in component scope, no deps captured).
@@ -186,9 +197,10 @@ function App() {
     lastSyncedRef.current = payload;
 
     const timer = setTimeout(() => {
-      writeUserDoc(user.uid, { favorites: favoriteChapters, notes }).catch((error) =>
-        console.warn("Could not sync to cloud", error),
-      );
+      writeUserDoc(user.uid, { favorites: favoriteChapters, notes }).catch((error: unknown) => {
+        setSyncError((error as { code?: string })?.code ?? "Could not save to cloud.");
+        console.warn("Could not sync to cloud", error);
+      });
     }, 600);
 
     return () => clearTimeout(timer);
@@ -341,7 +353,11 @@ function App() {
             <>
               <div className="account-info">
                 <span className="account-name">{user.displayName ?? user.email ?? "Signed in"}</span>
-                <span className="account-status">Notes &amp; favorites sync across your devices</span>
+                {syncError ? (
+                  <span className="account-error">Sync error: {syncError}</span>
+                ) : (
+                  <span className="account-status">Notes &amp; favorites sync across your devices</span>
+                )}
               </div>
               <button type="button" className="account-action" onClick={handleSignOut}>
                 <LogOut size={16} />
