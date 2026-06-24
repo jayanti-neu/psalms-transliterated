@@ -452,39 +452,8 @@ h2 {
   color: #16352f;
 }
 
-.verse-note-toggle {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: #e9efe3;
-  color: #395a52;
-  transition:
-    background 0.16s ease,
-    color 0.16s ease,
-    border-color 0.16s ease;
-}
-
-.verse-note-toggle:hover,
-.verse-note-toggle:focus-visible {
-  border-color: #b49b66;
-  color: #16352f;
-}
-
-.verse-note-toggle.has-note {
-  background: #f0c25d;
-  color: #16352f;
-}
-
 .verse-note {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #eadfca;
+  margin-top: 14px;
   display: grid;
   gap: 6px;
 }
@@ -513,39 +482,76 @@ h2 {
   color: #9a8f7f;
 }
 
+.verse-note-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.note-save {
+  min-height: 32px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #16352f;
+  color: #f0c25d;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+
+.note-save:hover,
+.note-save:focus-visible {
+  background: #1f463d;
+}
+
 .verse-tools {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 16px;
+  padding-top: 12px;
   border-top: 1px solid #eadfca;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 
-.commentary-toggle {
+.verse-tool {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 0 14px;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 12px;
   border: 1px solid #d9cfb8;
   border-radius: 999px;
   background: #fffdf5;
   color: #395a52;
-  font-weight: 800;
-  font-size: 0.85rem;
+  font-weight: 700;
+  font-size: 0.78rem;
 }
 
-.commentary-toggle:hover,
-.commentary-toggle:focus-visible {
+.verse-tool:hover:not(:disabled),
+.verse-tool:focus-visible {
   border-color: #b49b66;
   color: #16352f;
 }
 
-.commentary-toggle.active {
+.verse-tool.active {
   background: #16352f;
   border-color: #16352f;
   color: #f0c25d;
+}
+
+/* Keep the gold label readable when hovering an already-open button (the
+   generic hover above would otherwise turn the text dark on a dark fill). */
+.verse-tool.active:hover,
+.verse-tool.active:focus-visible {
+  background: #1f463d;
+  border-color: #1f463d;
+  color: #f0c25d;
+}
+
+/* A note exists on this verse — flag it (unless the panel is open/active). */
+.verse-tool.has-note:not(.active) {
+  border-color: #e6b94f;
+  color: #7a4f18;
+  background: #fdf6e4;
 }
 
 .verse-commentary {
@@ -667,7 +673,6 @@ h2 {
   gap: 16px 18px;
   margin: 0;
   padding-left: 48px;
-  padding-right: 44px;
   direction: rtl;
 }
 

@@ -619,13 +619,19 @@ function VerseCard({
   onNoteChange: (verseNumber: number, text: string) => void;
 }) {
   const words = verse.words ?? tokenizeHebrewWords(stripCantillation(verse.hebrew));
-  const [showTranslation, setShowTranslation] = useState(false);
-  const [showNote, setShowNote] = useState(false);
-  const [showCommentary, setShowCommentary] = useState(false);
+  // Only one of translation / commentary / note is open per verse at a time.
+  const [openPanel, setOpenPanel] = useState<"translation" | "commentary" | "note" | null>(null);
   const [commentary, setCommentary] = useState<VerseCommentary | null>(null);
   const [commentaryStatus, setCommentaryStatus] = useState<"idle" | "loading" | "error">("idle");
   const [activeSource, setActiveSource] = useState<CommentarySource>("Steinsaltz");
+  const showTranslation = openPanel === "translation";
+  const showCommentary = openPanel === "commentary";
+  const showNote = openPanel === "note";
   const shown = showTranslation || showAllTranslations;
+
+  function togglePanel(panel: "translation" | "commentary" | "note") {
+    setOpenPanel((current) => (current === panel ? null : panel));
+  }
   const hasNote = note.trim().length > 0;
   const noteFieldId = `note-${chapter}-${verse.number}`;
   const commentaryId = `commentary-${chapter}-${verse.number}`;
@@ -666,39 +672,9 @@ function VerseCard({
 
   return (
     <article className="verse-card">
-      <button
-        type="button"
-        className={`verse-number${shown ? " active" : ""}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          setShowTranslation((current) => !current);
-        }}
-        aria-expanded={shown}
-        aria-label={
-          shown
-            ? `Hide translation for verse ${verse.number}`
-            : `Show translation for verse ${verse.number}`
-        }
-        title={shown ? "Hide translation" : "Show translation"}
-      >
+      <span className={`verse-number${shown ? " active" : ""}`} aria-hidden="true">
         {verse.number}
-      </button>
-      <button
-        type="button"
-        className={`verse-note-toggle${hasNote ? " has-note" : ""}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          setShowNote((current) => !current);
-        }}
-        aria-expanded={showNote}
-        aria-controls={noteFieldId}
-        aria-label={
-          hasNote ? `Edit your note on verse ${verse.number}` : `Add a note to verse ${verse.number}`
-        }
-        title={hasNote ? "Edit your note" : "Add a note"}
-      >
-        <StickyNote size={16} />
-      </button>
+      </span>
       <div className="interlinear" dir="rtl" lang="he" aria-label={`Psalm verse ${verse.number}`}>
         {words.map((word, index) => (
           <WordPair
@@ -712,30 +688,64 @@ function VerseCard({
           />
         ))}
       </div>
+      <div className="verse-tools">
+        <button
+          type="button"
+          className={`verse-tool${shown ? " active" : ""}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            togglePanel("translation");
+          }}
+          aria-expanded={shown}
+          disabled={!verse.english}
+          title={
+            verse.english
+              ? shown
+                ? "Hide translation"
+                : "Show translation"
+              : "No translation available"
+          }
+        >
+          <Languages size={14} />
+          <span>Translation</span>
+        </button>
+        <button
+          type="button"
+          className={`verse-tool${showCommentary ? " active" : ""}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!showCommentary && commentaryStatus === "error") {
+              setCommentaryStatus("idle");
+            }
+            togglePanel("commentary");
+          }}
+          aria-expanded={showCommentary}
+          aria-controls={commentaryId}
+        >
+          <ScrollText size={14} />
+          <span>Commentary</span>
+        </button>
+        <button
+          type="button"
+          className={`verse-tool${showNote ? " active" : ""}${hasNote ? " has-note" : ""}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            togglePanel("note");
+          }}
+          aria-expanded={showNote}
+          aria-controls={noteFieldId}
+          title={hasNote ? "Your note" : "Add a note"}
+        >
+          <StickyNote size={14} />
+          <span>Note</span>
+        </button>
+      </div>
       {shown && verse.english ? (
         <p className="translation">
           <span>Translation</span>
           {verse.english}
         </p>
       ) : null}
-      <div className="verse-tools">
-        <button
-          type="button"
-          className={`commentary-toggle${showCommentary ? " active" : ""}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            if (!showCommentary && commentaryStatus === "error") {
-              setCommentaryStatus("idle");
-            }
-            setShowCommentary((current) => !current);
-          }}
-          aria-expanded={showCommentary}
-          aria-controls={commentaryId}
-        >
-          <ScrollText size={15} />
-          <span>Commentary</span>
-        </button>
-      </div>
       {showCommentary ? (
         <div className="verse-commentary" id={commentaryId} onClick={(event) => event.stopPropagation()}>
           {commentaryStatus === "loading" ? (
@@ -786,6 +796,11 @@ function VerseCard({
             rows={3}
             autoFocus
           />
+          <div className="verse-note-actions">
+            <button type="button" className="note-save" onClick={() => setOpenPanel(null)}>
+              Save
+            </button>
+          </div>
         </div>
       ) : null}
     </article>
