@@ -30,8 +30,11 @@ function joinComment(value) {
 const MAQQEF = "־"; // ־ Hebrew maqaf (word-joiner)
 
 function stripCantillation(value) {
+  // Keep niqqud vowels (U+05B0..U+05BC) so the library can read the word; strip
+  // only cantillation accents (U+0591..U+05AF) + meteg/rafe/paseq/lower-dot.
+  // Matches the web app's stripCantillation exactly.
   return (value || "")
-    .replace(/[֑-ֽֿ֯׀ׅ]/g, "")
+    .replace(/[\u0591-\u05AF\u05BD\u05BF\u05C0\u05C5]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
