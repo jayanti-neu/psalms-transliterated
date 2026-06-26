@@ -1,5 +1,6 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { transliterate } from "hebrew-transliteration";
 
 // Builds a tiny per-psalm "API" from the bundled Macula word data and the
 // Rashi/Steinsaltz commentary. One file per psalm (public/api/psalm/<n>.json)
@@ -26,23 +27,100 @@ function joinComment(value) {
   return arr.map(stripHtml).filter(Boolean).join(" ");
 }
 
-// Trims trailing Hebrew/ASCII verse punctuation (sof pasuq ׃, colon) from a
-// transliteration token.
-function cleanTranslit(t) {
-  return (t || "").replace(/[\s:׃.]+$/, "").trim();
+const MAQQEF = "־"; // ־ Hebrew maqaf (word-joiner)
+
+function stripCantillation(value) {
+  return (value || "")
+    .replace(/[֑-ֽֿ֯׀ׅ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Converts MACULA's scholarly transliteration (ʾašərê, ḏereḵ, …) into the
+// readable form the reader app shows (ashrei, derech, …). Ported verbatim from
+// the web app (src/App.tsx) so this API matches it exactly.
+function makeReadableTransliteration(scholarly) {
+  return (scholarly || "")
+    .replace(/^adonai$/i, "Adonai")
+    .replaceAll("yhwh", "Adonai")
+    .replaceAll("Yhwh", "Adonai")
+    .replace(/^ʾ?ă?ḏ?ōnāy$/gi, "Adonai")
+    .replace(/y[eə]h[oō]v[aā]/gi, "Adonai")
+    .replace(/ʾ?ĕ?lōhîm/gi, "Elohim")
+    // Drop a word-final shewa (ə) — silent at the end of a word.
+    .replace(/ə(?=:?\s*$)/g, "")
+    .replace(/[ʾʿ]/g, "'")
+    .replace(/[āăâ]/g, "a")
+    .replace(/[ēĕê]/g, "e")
+    .replace(/[īî]/g, "i")
+    .replace(/[ōŏô]/g, "o")
+    .replace(/[ūû]/g, "u")
+    .replace(/[əĕ]/g, "e")
+    .replace(/ḥ/g, "ch")
+    .replace(/ḫ/g, "ch")
+    .replace(/ḵ/g, "ch")
+    .replace(/ṭ/g, "t")
+    .replace(/ṣ/g, "tz")
+    .replace(/š/g, "sh")
+    .replace(/ś/g, "s")
+    .replace(/ḏ/g, "d")
+    .replace(/ḡ/g, "g")
+    .replace(/ṯ/g, "t")
+    .replace(/ḇ/g, "v")
+    .replace(/iy/g, "i")
+    .replace(/q/g, "k")
+    .replace(/Q/g, "K")
+    .replace(/w/g, "v")
+    .replace(/W/g, "V")
+    .replace(/p̄/g, "f")
+    .replace(/k̄/g, "ch")
+    .replace(/[ꜣ]/g, "")
+    .replace(/'/g, "")
+    .replace(/[׃]/g, "")
+    .replace(/[ᴬ-ᵿ]/g, "")
+    .replace(/[:]/g, "")
+    .replace(/shsh/g, "sh")
+    .replace(/tztz/g, "tz")
+    .replace(/chch/g, "ch")
+    .replace(/([bcdfghjklmnpqrstvxyz])\1/gi, "$1")
+    .replace(/\s+([:;,.!?])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Library fallback when MACULA has no transliteration for a token.
+function libTranslit(hebrew) {
+  try {
+    return makeReadableTransliteration(transliterate(stripCantillation(hebrew)));
+  } catch {
+    return "";
+  }
 }
 
 // Parts of speech that carry the word's core meaning (vs. attached
 // prefixes/suffixes like the article, conjunctions, prepositions, suffixes).
 const CONTENT_POS = new Set(["noun", "verb", "adjective", "adverb", "pronoun", "numeral"]);
 
-// Builds the per-word record: surface form + transliteration + gloss, plus the
-// morphological breakdown (parts) and the dictionary form / part of speech of
-// the main content part (used for the lexicon lookup and "root" line).
+// Readable transliteration for a whole word. MACULA gives one entry per
+// maqaf-joined segment; grammar pieces within a segment are space-separated and
+// joined with a hyphen (e.g. "ha-ish"), segments by a space ("ashrei ha-ish").
+function wordTranslit(w) {
+  if ((w.parts || []).some((pt) => stripCantillation(pt.lemma) === "אדני")) {
+    return "Adonai";
+  }
+  const segments = (w.transliteration || []).length
+    ? w.transliteration.map(makeReadableTransliteration)
+    : (w.text || "").split(MAQQEF).map(libTranslit);
+  return segments.map((s) => s.replace(/\s+/g, "-")).filter(Boolean).join(" ");
+}
+
+// Builds the per-word record: surface form + readable transliteration + gloss,
+// plus the morphological breakdown (parts) and the dictionary form / part of
+// speech of the main content part (for the lexicon lookup and "root" line).
 function buildWord(w) {
   const parts = (w.parts || []).map((pt) => ({
     he: pt.text,
-    translit: cleanTranslit(pt.transliteration || ""),
+    translit: makeReadableTransliteration(pt.transliteration || "") || libTranslit(pt.text),
     gloss: (pt.gloss || "").trim(),
     pos: pt.pos || "",
   }));
@@ -52,7 +130,7 @@ function buildWord(w) {
     {};
   return {
     he: w.text,
-    translit: cleanTranslit((w.transliteration || []).join(" ")),
+    translit: wordTranslit(w),
     gloss: (w.gloss || []).join(" ").trim(),
     lemma: content.lemma || "",
     pos: content.pos || "",
