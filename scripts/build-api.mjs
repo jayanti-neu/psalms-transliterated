@@ -32,6 +32,34 @@ function cleanTranslit(t) {
   return (t || "").replace(/[\s:׃.]+$/, "").trim();
 }
 
+// Parts of speech that carry the word's core meaning (vs. attached
+// prefixes/suffixes like the article, conjunctions, prepositions, suffixes).
+const CONTENT_POS = new Set(["noun", "verb", "adjective", "adverb", "pronoun", "numeral"]);
+
+// Builds the per-word record: surface form + transliteration + gloss, plus the
+// morphological breakdown (parts) and the dictionary form / part of speech of
+// the main content part (used for the lexicon lookup and "root" line).
+function buildWord(w) {
+  const parts = (w.parts || []).map((pt) => ({
+    he: pt.text,
+    translit: cleanTranslit(pt.transliteration || ""),
+    gloss: (pt.gloss || "").trim(),
+    pos: pt.pos || "",
+  }));
+  const content =
+    (w.parts || []).find((pt) => CONTENT_POS.has(pt.pos)) ||
+    (w.parts || [])[(w.parts || []).length - 1] ||
+    {};
+  return {
+    he: w.text,
+    translit: cleanTranslit((w.transliteration || []).join(" ")),
+    gloss: (w.gloss || []).join(" ").trim(),
+    lemma: content.lemma || "",
+    pos: content.pos || "",
+    parts,
+  };
+}
+
 await rm(OUT_ROOT, { recursive: true, force: true });
 await mkdir(OUT_PSALMS, { recursive: true });
 
@@ -42,11 +70,7 @@ const psalmNumbers = Object.keys(macula.chapters);
 for (const p of psalmNumbers) {
   const verses = {};
   for (const v of Object.keys(macula.chapters[p])) {
-    const words = macula.chapters[p][v].map((w) => ({
-      he: w.text,
-      translit: cleanTranslit((w.transliteration || []).join(" ")),
-      gloss: (w.gloss || []).join(" ").trim(),
-    }));
+    const words = macula.chapters[p][v].map(buildWord);
 
     const ce = (commCh[p] && commCh[p][v]) || {};
     verses[v] = {
