@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Languages,
@@ -40,6 +41,7 @@ import {
   withVerseNote,
   type NotesStore,
 } from "./notes";
+import { getMonthlyReading, getWeeklyReading } from "./schedule";
 import { fetchPsalm, type Verse } from "./sefaria";
 import { mergeSyncData, type SyncData } from "./sync";
 
@@ -236,6 +238,10 @@ function App() {
   }, [chapter]);
 
   const isFavorite = favoriteChapters.includes(chapter);
+  // Today's portions in the two traditional cycles. Computed once on mount so
+  // the panel stays put while the reader navigates around within the day.
+  const weeklyReading = useMemo(() => getWeeklyReading(), []);
+  const monthlyReading = useMemo(() => getMonthlyReading(), []);
 
   function chooseChapter(nextChapter: number) {
     const safeChapter = Math.min(PSALM_COUNT, Math.max(1, nextChapter));
@@ -405,6 +411,27 @@ function App() {
           <Star size={18} fill={isFavorite ? "currentColor" : "none"} />
           <span>{isFavorite ? "Saved to favorites" : "Save this psalm"}</span>
         </button>
+
+        <div className="today-block">
+          <div className="today-heading">
+            <CalendarDays size={16} aria-hidden="true" />
+            <span>Today&rsquo;s Tehilim</span>
+          </div>
+          <TodayReadingRow
+            cycle="Weekly"
+            when={weeklyReading.dayName}
+            portion={weeklyReading.portion}
+            chapter={chapter}
+            onSelect={chooseChapter}
+          />
+          <TodayReadingRow
+            cycle="Monthly"
+            when={monthlyReading.hebrewDate}
+            portion={monthlyReading.portion}
+            chapter={chapter}
+            onSelect={chooseChapter}
+          />
+        </div>
 
         <div className="favorites-block">
           <div className="favorites-heading">
@@ -597,6 +624,42 @@ function saveFavorites(favorites: number[]) {
   } catch (error) {
     console.warn("Could not save favorites", error);
   }
+}
+
+function TodayReadingRow({
+  cycle,
+  when,
+  portion,
+  chapter,
+  onSelect,
+}: {
+  cycle: string;
+  when: string;
+  portion: { from: number; to: number; rangeLabel: string };
+  chapter: number;
+  onSelect: (chapter: number) => void;
+}) {
+  // Highlight when the reader is already inside today's portion.
+  const isActive = chapter >= portion.from && chapter <= portion.to;
+  // A verse-range portion (Psalm 119 split) keeps a single-psalm label.
+  const noun = portion.rangeLabel.includes(":") ? "Psalm" : "Psalms";
+
+  return (
+    <button
+      type="button"
+      className={`today-row${isActive ? " active" : ""}`}
+      onClick={() => onSelect(portion.from)}
+      aria-current={isActive ? "true" : undefined}
+      title={`Read ${noun.toLowerCase()} ${portion.rangeLabel}`}
+    >
+      <span className="today-cycle">
+        {cycle} <span className="today-when">· {when}</span>
+      </span>
+      <span className="today-range">
+        {noun} {portion.rangeLabel}
+      </span>
+    </button>
+  );
 }
 
 function VerseCard({

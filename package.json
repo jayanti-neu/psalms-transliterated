@@ -12,6 +12,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 4173"
   },
   "dependencies": {
+    "@hebcal/hdate": "^0.22.4",
     "@vitejs/plugin-react": "^5.0.0",
     "firebase": "^12.15.0",
     "hebrew-transliteration": "^2.9.1",
