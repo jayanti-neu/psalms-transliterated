@@ -4,12 +4,12 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 5173",
+    "dev": "vite --host localhost --port 5173",
     "import:macula": "node scripts/import-macula-psalms.mjs",
     "import:commentary": "node scripts/import-commentary.mjs",
     "build:api": "node scripts/build-api.mjs",
     "build": "npm run build:api && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4173"
+    "preview": "vite preview --host localhost --port 4173"
   },
   "dependencies": {
     "@hebcal/hdate": "^0.22.4",
