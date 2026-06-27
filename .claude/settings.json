@@ -24,7 +24,33 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/src/grammarCards.ts)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://127.0.0.1:5173/psalms-transliterated/)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(git rm *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5174/psalms-transliterated/)",
+      "Bash(curl -s -o /dev/null -w \"dev server: %{http_code}\\\\n\" http://127.0.0.1:5174/psalms-transliterated/)",
+      "Bash(curl -s -o /dev/null -w \"dev: %{http_code}\\\\n\" http://127.0.0.1:5174/psalms-transliterated/)",
+      "Bash(curl -s --max-time 20 \"https://www.sefaria.org/api/words/%D7%A2%D6%B5%D7%A6%D6%B8%D7%94\")",
+      "Bash(curl -s --max-time 20 \"https://www.sefaria.org/api/links/Psalms.1.1?with_text=0\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(e.get\\('parent_lexicon'\\),'|',json.dumps\\(e.get\\('content',{}\\),ensure_ascii=False\\)[:300]\\) for e in d]\")",
+      "Bash(curl -s --max-time 20 \"https://www.sefaria.org/api/v3/texts/Rashi_on_Psalms.1.1?return_format=text_only\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); v=d.get\\('versions',[{}]\\); print\\(json.dumps\\(v[0].get\\('text',''\\),ensure_ascii=False\\)[:600] if v else 'none'\\)\")",
+      "Bash(grep -rn \"getLemmaStats\\\\|lemmaKey\\\\|LemmaStat\\\\|fetchWordInfo\\\\|WordInfo\\\\|getMainLexicalPart\\\\|getWalkBaseWord\\\\|walk-facts\\\\|walk-deep\\\\|walk-running\\\\|\\\\\\\\bdeep-\" src/)",
+      "Bash(python -)",
+      "PowerShell(npx tsc --noEmit)",
+      "PowerShell(npm run build)",
+      "WebFetch(domain:www.sefaria.org)",
+      "PowerShell(Start-Process powershell -ArgumentList '-NoProfile','-Command','npm run dev' -WorkingDirectory \\(Get-Location\\); Start-Sleep -Seconds 4; \\(Invoke-WebRequest -Uri http://127.0.0.1:5173 -UseBasicParsing\\).StatusCode)",
+      "PowerShell(npm run build; \"---\"; if \\(Test-Path dist/data/psalms-commentary.json\\) { \"dist bundle: {0} MB\" -f [math]::Round\\(\\(Get-Item dist/data/psalms-commentary.json\\).Length/1MB,2\\) } else { \"MISSING from dist\" })",
+      "PowerShell(try { $r = Invoke-WebRequest -UseBasicParsing \"http://127.0.0.1:5173/data/psalms-commentary.json\"; \"dev serves bundle: {0}, {1} MB\" -f $r.StatusCode, [math]::Round\\($r.RawContentLength/1MB,2\\) } catch { \"dev server not serving it: $\\($_.Exception.Message\\)\" })",
+      "PowerShell(npm run build 2>&1)",
+      "PowerShell(\"--- .claude/settings.json diff ---\")",
+      "Bash(git push *)",
+      "PowerShell(npm install firebase 2>&1)",
+      "PowerShell(npm install -D vite-plugin-pwa 2>&1)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\jayan\\.claude\\projects\\c--Users-jayan-Desktop-code-psalms-transliterated\\memory"
     ]
   }
 }
