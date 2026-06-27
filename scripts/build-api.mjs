@@ -126,6 +126,7 @@ function buildWord(w) {
     translit: makeReadableTransliteration(pt.transliteration || "") || libTranslit(pt.text),
     gloss: (pt.gloss || "").trim(),
     pos: pt.pos || "",
+    morph: pt.morph || "", // OSHB morphology code, decoded for display by consumers
   }));
   const content =
     (w.parts || []).find((pt) => CONTENT_POS.has(pt.pos)) ||
