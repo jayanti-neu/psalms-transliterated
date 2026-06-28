@@ -8,7 +8,8 @@
     "import:macula": "node scripts/import-macula-psalms.mjs",
     "import:commentary": "node scripts/import-commentary.mjs",
     "build:api": "node scripts/build-api.mjs",
-    "build": "npm run build:api && vite build",
+    "prerender": "node scripts/prerender.mjs",
+    "build": "npm run build:api && vite build && npm run prerender",
     "preview": "vite preview --host localhost --port 4173"
   },
   "dependencies": {

@@ -132,6 +132,18 @@ function App() {
     window.scrollTo({ top: 0, left: 0 });
   }, [chapter]);
 
+  // Keep the document title and description in sync with the open psalm, so
+  // shared links, browser history, and tabs are all meaningful per psalm.
+  useEffect(() => {
+    document.title = `Psalm ${chapter} — Hebrew & Transliteration | Tehilim Reader`;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute(
+        "content",
+        `Read Psalm ${chapter} (Tehilim ${chapter}) in Hebrew with English transliteration, translation, and Rashi & Steinsaltz commentary.`,
+      );
+  }, [chapter]);
+
   // Track the signed-in user.
   useEffect(() => watchAuth(setUser), []);
 
@@ -584,19 +596,37 @@ function App() {
 }
 
 function getInitialChapter(): number {
-  const params = new URLSearchParams(window.location.search);
-  const parsed = Number.parseInt(params.get("psalm") ?? "", 10);
-
-  if (!Number.isFinite(parsed)) {
-    return 1;
+  // Prefer the SEO-friendly path (/psalm/23/); fall back to the legacy ?psalm=23
+  // query so older bookmarks and shared links keep working.
+  const fromPath = readChapterFromPath();
+  if (fromPath) {
+    return clampChapter(fromPath);
   }
 
-  return Math.min(PSALM_COUNT, Math.max(1, parsed));
+  const fromQuery = Number.parseInt(
+    new URLSearchParams(window.location.search).get("psalm") ?? "",
+    10,
+  );
+  return Number.isFinite(fromQuery) ? clampChapter(fromQuery) : 1;
+}
+
+// Reads the chapter from a "<base>psalm/<n>/" path, or 0 if the path isn't one.
+function readChapterFromPath(): number {
+  const base = import.meta.env.BASE_URL;
+  const path = window.location.pathname.startsWith(base)
+    ? window.location.pathname.slice(base.length)
+    : window.location.pathname.replace(/^\//, "");
+  const match = path.match(/^psalm\/(\d+)/);
+  return match ? Number.parseInt(match[1], 10) : 0;
+}
+
+function clampChapter(chapter: number): number {
+  return Math.min(PSALM_COUNT, Math.max(1, chapter));
 }
 
 function setUrlChapter(chapter: number) {
-  const url = new URL(window.location.href);
-  url.searchParams.set("psalm", String(chapter));
+  // Real path per psalm so each has its own crawlable, shareable URL.
+  const url = `${import.meta.env.BASE_URL}psalm/${chapter}/`;
   window.history.replaceState(null, "", url);
 }
 
