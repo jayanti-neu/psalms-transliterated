@@ -120,6 +120,13 @@ function wordTranslit(w) {
 // Builds the per-word record: surface form + readable transliteration + gloss,
 // plus the morphological breakdown (parts) and the dictionary form / part of
 // speech of the main content part (for the lexicon lookup and "root" line).
+// The main content part of a word (its noun/verb/etc., not attached affixes).
+function contentPart(w) {
+  return (w.parts || []).find((pt) => CONTENT_POS.has(pt.pos)) ||
+         (w.parts || [])[(w.parts || []).length - 1] ||
+         {};
+}
+
 function buildWord(w) {
   const parts = (w.parts || []).map((pt) => ({
     he: pt.text,
@@ -128,10 +135,7 @@ function buildWord(w) {
     pos: pt.pos || "",
     morph: pt.morph || "", // OSHB morphology code, decoded for display by consumers
   }));
-  const content =
-    (w.parts || []).find((pt) => CONTENT_POS.has(pt.pos)) ||
-    (w.parts || [])[(w.parts || []).length - 1] ||
-    {};
+  const content = contentPart(w);
   return {
     he: w.text,
     translit: wordTranslit(w),
@@ -148,11 +152,26 @@ await mkdir(OUT_PSALMS, { recursive: true });
 const commCh = commentary.chapters || {};
 let totalVerses = 0;
 
+// lemma → every occurrence "psalm:verse:wordIndex", for the "related occurrences"
+// feature (see the same word in other verses).
+const occurrences = new Map();
+const MAX_REFS = 20; // cap stored refs per lemma to bound the index size
+
 const psalmNumbers = Object.keys(macula.chapters);
 for (const p of psalmNumbers) {
   const verses = {};
   for (const v of Object.keys(macula.chapters[p])) {
-    const words = macula.chapters[p][v].map(buildWord);
+    const rawWords = macula.chapters[p][v];
+    const words = rawWords.map(buildWord);
+
+    rawWords.forEach((w, i) => {
+      const lemma = contentPart(w).lemma;
+      if (!lemma) return;
+      if (!occurrences.has(lemma)) occurrences.set(lemma, { c: 0, r: [] });
+      const e = occurrences.get(lemma);
+      e.c += 1;
+      if (e.r.length < MAX_REFS) e.r.push(`${p}:${v}:${i}`);
+    });
 
     const ce = (commCh[p] && commCh[p][v]) || {};
     verses[v] = {
@@ -167,6 +186,15 @@ for (const p of psalmNumbers) {
     JSON.stringify({ psalm: Number(p), verses })
   );
 }
+
+// Lemma index — only lemmas appearing more than once (singletons have no
+// "related" occurrences to show).
+const lemmaIndex = {};
+for (const [lemma, e] of occurrences) {
+  if (e.c > 1) lemmaIndex[lemma] = e;
+}
+await writeFile(path.join(OUT_ROOT, "lemma-index.json"), JSON.stringify(lemmaIndex));
+console.log(`build-api: lemma index has ${Object.keys(lemmaIndex).length} recurring lemmas`);
 
 await writeFile(
   path.join(OUT_ROOT, "index.json"),
