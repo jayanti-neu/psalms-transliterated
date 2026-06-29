@@ -127,14 +127,17 @@ function contentPart(w) {
          {};
 }
 
-function buildWord(w) {
-  const parts = (w.parts || []).map((pt) => ({
+function buildPart(pt) {
+  return {
     he: pt.text,
     translit: makeReadableTransliteration(pt.transliteration || "") || libTranslit(pt.text),
     gloss: (pt.gloss || "").trim(),
     pos: pt.pos || "",
     morph: pt.morph || "", // OSHB morphology code, decoded for display by consumers
-  }));
+  };
+}
+
+function buildWord(w) {
   const content = contentPart(w);
   return {
     he: w.text,
@@ -142,8 +145,52 @@ function buildWord(w) {
     gloss: (w.gloss || []).join(" ").trim(),
     lemma: content.lemma || "",
     pos: content.pos || "",
-    parts,
+    parts: (w.parts || []).map(buildPart),
   };
+}
+
+// Splits a maqaf-joined word (e.g. אַשְׁרֵי־הָאִישׁ) into separate words, each its
+// own learning unit. Every word but the last gets `j: 1` (joined to the next by
+// a maqaf) so the verse line can still render the maqaf. Falls back to a single
+// word when there's no maqaf or the morphemes don't map cleanly to the segments.
+function splitWord(w) {
+  const segTexts = (w.text || "").split(MAQQEF);
+  if (segTexts.length <= 1) return [buildWord(w)];
+
+  const allParts = w.parts || [];
+  const buckets = [];
+  let pi = 0;
+  for (let si = 0; si < segTexts.length; si++) {
+    const target = stripCantillation(segTexts[si]);
+    let acc = "";
+    const segParts = [];
+    while (pi < allParts.length && acc !== target) {
+      acc += stripCantillation(allParts[pi].text);
+      segParts.push(allParts[pi]);
+      pi += 1;
+    }
+    if (acc !== target) return [buildWord(w)]; // morphemes don't line up → don't split
+    buckets.push(segParts);
+  }
+  if (pi !== allParts.length) return [buildWord(w)];
+
+  return segTexts.map((segText, si) => {
+    const segParts = buckets[si];
+    const content = contentPart({ parts: segParts });
+    const rawTr = (w.transliteration && w.transliteration[si])
+      ? makeReadableTransliteration(w.transliteration[si])
+      : segParts.map((pt) => makeReadableTransliteration(pt.transliteration || "") || libTranslit(pt.text)).join(" ");
+    const out = {
+      he: segText,
+      translit: (rawTr || "").replace(/\s+/g, "-"),
+      gloss: ((w.gloss && w.gloss[si]) || segParts.map((p) => p.gloss).filter(Boolean).join(" ") || "").toString().trim(),
+      lemma: content.lemma || "",
+      pos: content.pos || "",
+      parts: segParts.map(buildPart),
+    };
+    if (si < segTexts.length - 1) out.j = 1;
+    return out;
+  });
 }
 
 await rm(OUT_ROOT, { recursive: true, force: true });
@@ -161,11 +208,11 @@ const psalmNumbers = Object.keys(macula.chapters);
 for (const p of psalmNumbers) {
   const verses = {};
   for (const v of Object.keys(macula.chapters[p])) {
-    const rawWords = macula.chapters[p][v];
-    const words = rawWords.map(buildWord);
+    // Expand maqaf-joined words into separate learning units.
+    const words = macula.chapters[p][v].flatMap(splitWord);
 
-    rawWords.forEach((w, i) => {
-      const lemma = contentPart(w).lemma;
+    words.forEach((sw, i) => {
+      const lemma = sw.lemma;
       if (!lemma) return;
       if (!occurrences.has(lemma)) occurrences.set(lemma, { c: 0, r: [] });
       const e = occurrences.get(lemma);
