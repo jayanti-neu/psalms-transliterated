@@ -11,7 +11,6 @@ import {
   NotebookPen,
   ScrollText,
   Search,
-  Sparkles,
   StickyNote,
   Star,
   X,
@@ -41,6 +40,7 @@ import {
   withVerseNote,
   type NotesStore,
 } from "./notes";
+import { getPrayer, PRAYERS, type Prayer, type PrayerLine } from "./prayers";
 import { getMonthlyReading, getWeeklyReading } from "./schedule";
 import { fetchPsalm, type Verse } from "./sefaria";
 import { mergeSyncData, type SyncData } from "./sync";
@@ -68,15 +68,16 @@ type LoadState =
   | { status: "error"; verses: Verse[]; error: string };
 
 function App() {
-  const initialChapter = getInitialChapter();
-  const [chapter, setChapter] = useState(initialChapter);
-  const [typedChapter, setTypedChapter] = useState(String(initialChapter));
+  const initialView = getInitialView();
+  const [chapter, setChapter] = useState(initialView.chapter);
+  const [typedChapter, setTypedChapter] = useState(String(initialView.chapter));
+  const [activePrayer, setActivePrayer] = useState<Prayer | null>(initialView.prayer);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [isDesktopPanelHidden, setIsDesktopPanelHidden] = useState(true);
   const [isNearBottom, setIsNearBottom] = useState(false);
   const [openWordId, setOpenWordId] = useState<string | null>(null);
-  const [grammarLens, setGrammarLens] = useState(false);
   const [showAllTranslations, setShowAllTranslations] = useState(false);
+  const [showPsalmNote, setShowPsalmNote] = useState(false);
   const [favoriteChapters, setFavoriteChapters] = useState<number[]>(() => loadFavorites());
   const [notes, setNotes] = useState<NotesStore>(() => loadNotes());
   const [user, setUser] = useState<User | null>(null);
@@ -100,6 +101,11 @@ function App() {
   const mergedOnceRef = useRef(false);
 
   useEffect(() => {
+    // A prayer is showing its own content; no psalm to fetch.
+    if (activePrayer) {
+      return;
+    }
+
     let cancelled = false;
 
     setLoadState((current) => ({ status: "loading", verses: current.verses, error: "" }));
@@ -126,23 +132,28 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [chapter]);
+  }, [chapter, activePrayer]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
-  }, [chapter]);
+  }, [chapter, activePrayer]);
 
-  // Keep the document title and description in sync with the open psalm, so
-  // shared links, browser history, and tabs are all meaningful per psalm.
+  // Keep the document title and description in sync with the open text, so
+  // shared links, browser history, and tabs are all meaningful.
   useEffect(() => {
-    document.title = `Psalm ${chapter} — Hebrew & Transliteration | Tehilim Reader`;
-    document
-      .querySelector('meta[name="description"]')
-      ?.setAttribute(
-        "content",
-        `Read Psalm ${chapter} (Tehilim ${chapter}) in Hebrew with English transliteration, translation, and Rashi & Steinsaltz commentary.`,
+    if (activePrayer) {
+      document.title = `${activePrayer.title} — Hebrew & Transliteration | Tehilim Reader`;
+      setMetaDescription(
+        `${activePrayer.title} in Hebrew with English transliteration and translation.`,
       );
-  }, [chapter]);
+      return;
+    }
+
+    document.title = `Psalm ${chapter} — Hebrew & Transliteration | Tehilim Reader`;
+    setMetaDescription(
+      `Read Psalm ${chapter} (Tehilim ${chapter}) in Hebrew with English transliteration, translation, and Rashi & Steinsaltz commentary.`,
+    );
+  }, [chapter, activePrayer]);
 
   // Track the signed-in user.
   useEffect(() => watchAuth(setUser), []);
@@ -257,11 +268,19 @@ function App() {
 
   function chooseChapter(nextChapter: number) {
     const safeChapter = Math.min(PSALM_COUNT, Math.max(1, nextChapter));
+    setActivePrayer(null);
     setChapter(safeChapter);
     setTypedChapter(String(safeChapter));
     setIsPanelOpen(false);
     setOpenWordId(null);
     setUrlChapter(safeChapter);
+  }
+
+  function choosePrayer(prayer: Prayer) {
+    setActivePrayer(prayer);
+    setIsPanelOpen(false);
+    setOpenWordId(null);
+    setUrlPrayer(prayer.id);
   }
 
 
@@ -324,6 +343,7 @@ function App() {
   }
 
   const chapterNotes = getPsalmNotes(notes, chapter);
+  const hasPsalmNote = chapterNotes.psalm.trim().length > 0;
 
   return (
     <main className={`app-shell${isDesktopPanelHidden ? " panel-hidden" : ""}`}>
@@ -445,6 +465,29 @@ function App() {
           />
         </div>
 
+        <div className="today-block">
+          <div className="today-heading">
+            <ScrollText size={16} aria-hidden="true" />
+            <span>Prayers</span>
+          </div>
+          {PRAYERS.map((prayer) => (
+            <button
+              key={prayer.id}
+              type="button"
+              className={`today-row${activePrayer?.id === prayer.id ? " active" : ""}`}
+              onClick={() => choosePrayer(prayer)}
+              aria-current={activePrayer?.id === prayer.id ? "true" : undefined}
+            >
+              <span className="today-cycle">{prayer.title}</span>
+              {prayer.hebrewTitle ? (
+                <span className="today-range" dir="rtl" lang="he">
+                  {prayer.hebrewTitle}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
         <div className="favorites-block">
           <div className="favorites-heading">
             <span>Favorites</span>
@@ -456,7 +499,7 @@ function App() {
                 <button
                   key={item}
                   type="button"
-                  className={item === chapter ? "active" : ""}
+                  className={!activePrayer && item === chapter ? "active" : ""}
                   onClick={() => chooseChapter(item)}
                 >
                   {item}
@@ -475,25 +518,66 @@ function App() {
       </aside>
 
       <section className="text-area" aria-live="polite">
-        <button
-          type="button"
-          className={`page-nav page-nav-prev${isNearBottom ? " near-bottom" : ""}`}
-          onClick={() => chooseChapter(chapter - 1)}
-          disabled={chapter <= 1}
-          aria-label="Previous psalm"
-        >
-          <ChevronLeft size={28} />
-        </button>
-        <button
-          type="button"
-          className={`page-nav page-nav-next${isNearBottom ? " near-bottom" : ""}`}
-          onClick={() => chooseChapter(chapter + 1)}
-          disabled={chapter >= PSALM_COUNT}
-          aria-label="Next psalm"
-        >
-          <ChevronRight size={28} />
-        </button>
+        {!activePrayer ? (
+          <>
+            <button
+              type="button"
+              className={`page-nav page-nav-prev${isNearBottom ? " near-bottom" : ""}`}
+              onClick={() => chooseChapter(chapter - 1)}
+              disabled={chapter <= 1}
+              aria-label="Previous psalm"
+            >
+              <ChevronLeft size={28} />
+            </button>
+            <button
+              type="button"
+              className={`page-nav page-nav-next${isNearBottom ? " near-bottom" : ""}`}
+              onClick={() => chooseChapter(chapter + 1)}
+              disabled={chapter >= PSALM_COUNT}
+              aria-label="Next psalm"
+            >
+              <ChevronRight size={28} />
+            </button>
+          </>
+        ) : null}
 
+        {activePrayer ? (
+          <>
+            <header className="text-header">
+              <div>
+                <p className="eyebrow">
+                  Prayer
+                  {activePrayer.hebrewTitle ? (
+                    <>
+                      {" · "}
+                      <span dir="rtl" lang="he">
+                        {activePrayer.hebrewTitle}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+                <h2>{activePrayer.title}</h2>
+                {activePrayer.subtitle ? (
+                  <p className="text-subtitle">{activePrayer.subtitle}</p>
+                ) : null}
+              </div>
+              <div className="text-header-actions">
+                <button
+                  type="button"
+                  className={`grammar-toggle${showAllTranslations ? " active" : ""}`}
+                  onClick={() => setShowAllTranslations((current) => !current)}
+                  aria-pressed={showAllTranslations}
+                  title={showAllTranslations ? "Hide all translations" : "Show all translations"}
+                >
+                  <Languages size={16} />
+                  <span>{showAllTranslations ? "Hide all" : "Translate all"}</span>
+                </button>
+              </div>
+            </header>
+            <PrayerText prayer={activePrayer} showAllTranslations={showAllTranslations} />
+          </>
+        ) : (
+          <>
         <header className="text-header">
           <div>
             <p className="eyebrow">Sefer Tehilim</p>
@@ -518,51 +602,21 @@ function App() {
             </button>
             <button
               type="button"
-              className={`grammar-toggle${grammarLens ? " active" : ""}`}
-              onClick={() => setGrammarLens((current) => !current)}
-              aria-pressed={grammarLens}
-              title="Highlight grammar in the text"
+              className={`grammar-toggle${showPsalmNote ? " active" : ""}${
+                hasPsalmNote ? " has-note" : ""
+              }`}
+              onClick={() => setShowPsalmNote((current) => !current)}
+              aria-pressed={showPsalmNote}
+              title={showPsalmNote ? "Hide your notes" : "Show your notes"}
             >
-              <Sparkles size={16} />
-              <span>Grammar</span>
+              <StickyNote size={16} />
+              <span>Notes</span>
             </button>
           </div>
         </header>
 
-        {grammarLens ? (
-          <div className="lens-legend">
-            <span className="lens-key k-verb" title="Verbs — what someone does: walk, sit, knows.">
-              action words
-            </span>
-            <span className="lens-key k-noun" title="Naming and describing words: man, way, wicked.">
-              nouns
-            </span>
-            <span
-              className="lens-key k-relationship"
-              title="Show position or direction: in, to, on, from, with."
-            >
-              relationship words
-            </span>
-            <span
-              className="lens-key k-connector"
-              title="Join or flag things: and, but, the, not, who."
-            >
-              connectors &amp; markers
-            </span>
-            <span
-              className="lens-key k-suffix"
-              title="Attached endings meaning my / your / him / me."
-            >
-              endings
-            </span>
-            <span
-              className="lens-key k-oflink"
-              title="A word bound to the next one: “counsel of”, “way of”."
-            >
-              “… of …” link
-            </span>
-            <span className="lens-hint">Hover a label, or tap any word, to see what it means.</span>
-          </div>
+        {loadState.status === "ready" && showPsalmNote ? (
+          <PsalmNote chapter={chapter} value={chapterNotes.psalm} onChange={updatePsalmNote} />
         ) : null}
 
         {loadState.status === "error" ? (
@@ -578,7 +632,6 @@ function App() {
                 chapter={chapter}
                 openWordId={openWordId}
                 setOpenWordId={setOpenWordId}
-                grammarLens={grammarLens}
                 showAllTranslations={showAllTranslations}
                 note={chapterNotes.verses[verse.number] ?? ""}
                 onNoteChange={updateVerseNote}
@@ -587,12 +640,32 @@ function App() {
           </div>
         )}
 
-        {loadState.status === "ready" ? (
-          <PsalmNote chapter={chapter} value={chapterNotes.psalm} onChange={updatePsalmNote} />
-        ) : null}
+          </>
+        )}
       </section>
     </main>
   );
+}
+
+// Resolves the initial view from the URL: a prayer (/prayer/<id>/) if the path
+// names a known one, otherwise a psalm. Chapter is always resolved too so
+// leaving a prayer falls back to a sensible psalm.
+function getInitialView(): { chapter: number; prayer: Prayer | null } {
+  const prayerId = readPrayerFromPath();
+  return {
+    chapter: getInitialChapter(),
+    prayer: prayerId ? getPrayer(prayerId) ?? null : null,
+  };
+}
+
+// Reads the prayer id from a "<base>prayer/<id>/" path, or "" if not one.
+function readPrayerFromPath(): string {
+  const base = import.meta.env.BASE_URL;
+  const path = window.location.pathname.startsWith(base)
+    ? window.location.pathname.slice(base.length)
+    : window.location.pathname.replace(/^\//, "");
+  const match = path.match(/^prayer\/([\w-]+)/);
+  return match ? match[1] : "";
 }
 
 function getInitialChapter(): number {
@@ -628,6 +701,15 @@ function setUrlChapter(chapter: number) {
   // Real path per psalm so each has its own crawlable, shareable URL.
   const url = `${import.meta.env.BASE_URL}psalm/${chapter}/`;
   window.history.replaceState(null, "", url);
+}
+
+function setUrlPrayer(id: string) {
+  const url = `${import.meta.env.BASE_URL}prayer/${id}/`;
+  window.history.replaceState(null, "", url);
+}
+
+function setMetaDescription(content: string) {
+  document.querySelector('meta[name="description"]')?.setAttribute("content", content);
 }
 
 function loadFavorites(): number[] {
@@ -692,12 +774,95 @@ function TodayReadingRow({
   );
 }
 
+// Renders a prayer in the same interlinear style as the psalms. There's no
+// MACULA morphology for these texts, so words show paired Hebrew +
+// transliteration without the per-word grammar popover.
+function PrayerText({
+  prayer,
+  showAllTranslations,
+}: {
+  prayer: Prayer;
+  showAllTranslations: boolean;
+}) {
+  return (
+    <>
+      {prayer.note ? <p className="prayer-intro">{prayer.note}</p> : null}
+      <div className="verse-list">
+        {prayer.lines.map((line) => (
+          <PrayerLineCard key={line.number} line={line} showAllTranslations={showAllTranslations} />
+        ))}
+        {prayer.seal ? (
+          <PrayerLineCard line={prayer.seal} showAllTranslations={showAllTranslations} seal />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function PrayerLineCard({
+  line,
+  showAllTranslations,
+  seal = false,
+}: {
+  line: PrayerLine;
+  showAllTranslations: boolean;
+  seal?: boolean;
+}) {
+  const [showTranslation, setShowTranslation] = useState(false);
+  const shown = showTranslation || showAllTranslations;
+
+  return (
+    <article className={`verse-card${seal ? " prayer-seal" : ""}`}>
+      {seal ? null : (
+        <span className={`verse-number${shown ? " active" : ""}`} aria-hidden="true">
+          {line.number}
+        </span>
+      )}
+      <div
+        className="interlinear"
+        dir="rtl"
+        lang="he"
+        aria-label={seal ? "Closing line" : `Line ${line.number}`}
+      >
+        {line.words.map((word, index) => (
+          <span className="word-pair" key={`${word.he}-${index}`}>
+            <span className="word-trigger static">
+              <span className="hebrew-word">{word.he}</span>
+              <span className="transliteration" dir="ltr" lang="en">
+                {word.tr}
+              </span>
+            </span>
+          </span>
+        ))}
+      </div>
+      <div className="verse-tools">
+        <button
+          type="button"
+          className={`verse-tool${shown ? " active" : ""}`}
+          onClick={() => setShowTranslation((current) => !current)}
+          aria-expanded={shown}
+          title={shown ? "Hide translation" : "Show translation"}
+        >
+          <Languages size={14} />
+          <span>Translation</span>
+        </button>
+      </div>
+      {shown ? (
+        <p className="translation">
+          <span>Translation</span>
+          {line.english}
+        </p>
+      ) : null}
+      {line.note ? <p className="prayer-line-note">{line.note}</p> : null}
+    </article>
+  );
+}
+
 function VerseCard({
   verse,
   chapter,
   openWordId,
   setOpenWordId,
-  grammarLens,
   showAllTranslations,
   note,
   onNoteChange,
@@ -706,7 +871,6 @@ function VerseCard({
   chapter: number;
   openWordId: string | null;
   setOpenWordId: (wordId: string | null) => void;
-  grammarLens: boolean;
   showAllTranslations: boolean;
   note: string;
   onNoteChange: (verseNumber: number, text: string) => void;
@@ -776,7 +940,6 @@ function VerseCard({
             wordId={`${chapter}-${verse.number}-${index}`}
             isDetailsOpen={openWordId === `${chapter}-${verse.number}-${index}`}
             setOpenWordId={setOpenWordId}
-            grammarLens={grammarLens}
             key={`${typeof word === "string" ? word : word.text}-${index}`}
           />
         ))}
@@ -989,14 +1152,12 @@ function WordPair({
   wordId,
   isDetailsOpen,
   setOpenWordId,
-  grammarLens,
 }: {
   word: string;
   maculaWord?: MaculaWord;
   wordId: string;
   isDetailsOpen: boolean;
   setOpenWordId: (wordId: string | null) => void;
-  grammarLens: boolean;
 }) {
   const lookupParts = useMemo(() => getLookupParts(word), [word]);
   const transliterationParts = useMemo(
@@ -1015,13 +1176,7 @@ function WordPair({
         }}
         aria-expanded={isDetailsOpen}
       >
-      <span className="hebrew-word">
-        {grammarLens && maculaWord ? (
-          <ColoredHebrew word={word} maculaWord={maculaWord} />
-        ) : (
-          word
-        )}
-      </span>
+      <span className="hebrew-word">{word}</span>
       <span
         className={`transliteration${transliterationParts.length > 1 ? " compound" : ""}`}
         dir={transliterationParts.length > 1 ? "rtl" : "ltr"}
@@ -1146,109 +1301,15 @@ function getPopoverPartPronunciation(part: MaculaWordPart): string {
   return "[part]";
 }
 
-// ---------------------------------------------------------------------------
-// Grammar lens (prototype): color each *piece* of a word by what it does, so a
-// word like בַּעֲצַת shows its prefix and its noun in different colors instead
-// of one flat color for the whole word.
-// ---------------------------------------------------------------------------
-
-// Renders the Hebrew word as colored pieces. We walk the original text and the
-// known parts together so any leftover characters (e.g. a maqef "־" that sits
-// between parts) are kept as plain separators.
-function ColoredHebrew({ word, maculaWord }: { word: string; maculaWord: MaculaWord }) {
-  const segments = getHebrewSegments(word, maculaWord);
-
-  if (!segments) {
-    return <>{word}</>;
-  }
-
-  return (
-    <>
-      {segments.map((segment, index) => (
-        <span className={segment.className} title={segment.title} key={`${segment.text}-${index}`}>
-          {segment.text}
-        </span>
-      ))}
-    </>
-  );
-}
-
-type HebrewSegment = { text: string; className: string; title?: string };
-
-function getHebrewSegments(word: string, maculaWord: MaculaWord): HebrewSegment[] | null {
-  const hostsSuffix = maculaWord.parts.some((part) => part.pos === "suffix");
-  const segments: HebrewSegment[] = [];
-  let cursor = 0;
-
-  for (const part of maculaWord.parts) {
-    if (!part.text) continue;
-
-    const index = word.indexOf(part.text, cursor);
-    if (index === -1) {
-      // Text and parts didn't line up — fall back to the plain word.
-      return null;
-    }
-
-    if (index > cursor) {
-      segments.push({ text: word.slice(cursor, index), className: "hebrew-seg" });
-    }
-    segments.push({
-      text: part.text,
-      className: `hebrew-seg ${getPartClasses(part, hostsSuffix)}`,
-      title: isOfLinkPart(part, hostsSuffix)
-        ? "“…-of” — this word is bound to the next one"
-        : undefined,
-    });
-    cursor = index + part.text.length;
-  }
-
-  if (cursor < word.length) {
-    segments.push({ text: word.slice(cursor), className: "hebrew-seg" });
-  }
-
-  return segments;
-}
-
 // A "bound" (construct) noun/adjective means "X of …" and links to the next
 // word — unless it instead carries its own possessive ending ("your rod").
+// Used to spell out the "… of" meaning in the word-tap popover.
 function isOfLinkPart(part: MaculaWordPart, hostsSuffix: boolean): boolean {
   return (
     (part.pos === "noun" || part.pos === "adjective") &&
     part.morph?.[4] === "c" &&
     !hostsSuffix
   );
-}
-
-// The color/role classes for one piece of a word. A piece can be both a kind
-// (noun) and a link ("of"), e.g. a bound noun gets seg-noun + seg-oflink.
-function getPartClasses(part: MaculaWordPart, hostsSuffix: boolean): string {
-  const classes: string[] = [];
-
-  switch (part.pos) {
-    case "verb":
-      classes.push("seg-verb");
-      break;
-    case "preposition":
-    case "prefix":
-      classes.push("seg-relationship");
-      break;
-    case "conjunction":
-    case "particle":
-      classes.push("seg-connector");
-      break;
-    case "suffix":
-      classes.push("seg-suffix");
-      break;
-    default:
-      // noun, adjective, pronoun, etc. — the main "content" words.
-      classes.push("seg-noun");
-  }
-
-  if (isOfLinkPart(part, hostsSuffix)) {
-    classes.push("seg-oflink");
-  }
-
-  return classes.join(" ");
 }
 
 function CompoundParts({ parts, className }: { parts: string[]; className: string }) {

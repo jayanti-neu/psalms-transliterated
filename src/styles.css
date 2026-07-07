@@ -84,6 +84,13 @@ button:disabled {
   .app-shell.panel-hidden .text-area {
     padding-left: clamp(92px, 9vw, 124px);
   }
+
+  /* Fixed-height sidebar that scrolls internally when its content is taller
+     than the viewport (favorites, prayers, schedules can add up). */
+  .reader-panel {
+    height: 100vh;
+    overflow-y: auto;
+  }
 }
 
 .reader-panel {
@@ -97,6 +104,27 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 22px;
+  /* Subtle scrollbar (Firefox / modern Chrome). */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 253, 245, 0.22) transparent;
+}
+
+/* Subtle scrollbar (WebKit / Blink). */
+.reader-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.reader-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.reader-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 253, 245, 0.16);
+  border-radius: 999px;
+}
+
+.reader-panel:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 253, 245, 0.28);
 }
 
 .brand {
@@ -277,6 +305,45 @@ h2 {
 .today-block {
   display: grid;
   gap: 8px;
+}
+
+.text-subtitle {
+  margin: 6px 0 0;
+  color: #6c5a37;
+  font-size: 0.95rem;
+}
+
+.prayer-intro {
+  max-width: 980px;
+  margin: 0 auto 22px;
+  color: #4d4635;
+  line-height: 1.5;
+}
+
+.word-trigger.static {
+  cursor: default;
+}
+
+.prayer-line-note {
+  margin: 12px 0 0;
+  color: #6c5a37;
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+.verse-card.prayer-seal {
+  background: #f7f2e4;
+  border-style: dashed;
+  text-align: center;
+}
+
+.verse-card.prayer-seal .interlinear {
+  justify-content: center;
+  padding-left: 0;
+}
+
+.verse-card.prayer-seal .verse-tools {
+  justify-content: center;
 }
 
 .today-heading {
@@ -692,7 +759,7 @@ h2 {
 
 .psalm-note {
   max-width: 980px;
-  margin: 24px auto 0;
+  margin: 0 auto 16px;
   padding: 22px clamp(18px, 4vw, 34px) 24px;
   border: 1px solid #dfd4bd;
   border-radius: 8px;
@@ -907,77 +974,8 @@ h2 {
   color: #f0c25d;
 }
 
-.lens-legend {
-  max-width: 980px;
-  margin: -10px auto 22px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
-  font-size: 0.82rem;
-  color: #6b5b3e;
-}
-
-.lens-key {
-  font-weight: 800;
-  cursor: help;
-}
-
-.lens-key.k-verb {
-  color: #b4541f;
-}
-
-.lens-key.k-noun {
-  color: #17312c;
-}
-
-.lens-key.k-relationship {
-  color: #2c6f9b;
-}
-
-.lens-key.k-connector {
-  color: #9a8f7f;
-}
-
-.lens-key.k-suffix {
-  color: #a64d9b;
-}
-
-.lens-key.k-oflink {
-  color: #17312c;
-  text-decoration: underline dotted #2f6f63;
-  text-underline-offset: 3px;
-}
-
-.lens-hint {
-  margin-left: auto;
-  font-style: italic;
-}
-
-/* Colored pieces inside a Hebrew word when the grammar lens is on. */
-.seg-verb {
-  color: #b4541f;
-}
-
-.seg-relationship {
-  color: #2c6f9b;
-}
-
-.seg-connector {
-  color: #9a8f7f;
-}
-
-.seg-suffix {
-  color: #a64d9b;
-}
-
-.seg-noun {
-  color: inherit;
-}
-
-.seg-oflink {
-  text-decoration: underline dotted #6fa89c;
-  text-underline-offset: 5px;
+.grammar-toggle.has-note {
+  border-color: #f0c25d;
 }
 
 .translation {

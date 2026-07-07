@@ -1,0 +1,42 @@
+{
+  "id": "ana-bekoach",
+  "title": "Ana BeKoach",
+  "hebrewTitle": "אָנָּא בְּכֹחַ",
+  "subtitle": "The Forty-Two Letter Name",
+  "note": "A seven-line Kabbalistic prayer attributed to Rabbi Nechunya ben HaKanah. According to Kabbalistic tradition, the initial letters of the prayer's forty-two words correspond to the Forty-Two-Letter Name of God.",
+  "lines": [
+    {
+      "words": [["אָנָּא", "ana"], ["בְּכֹחַ", "bekoach"], ["גְּדֻלַּת", "gedulat"], ["יְמִינְךָ", "yemincha"], ["תַּתִּיר", "tatir"], ["צְרוּרָה", "tzerura"]],
+      "english": "Please, with the great strength of Your right hand, release the bound."
+    },
+    {
+      "words": [["קַבֵּל", "kabel"], ["רִנַּת", "rinat"], ["עַמְּךָ", "amcha"], ["שַׂגְּבֵנוּ", "sagvenu"], ["טַהֲרֵנוּ", "taharenu"], ["נוֹרָא", "nora"]],
+      "english": "Accept Your people's song; elevate and purify us, O Awesome One."
+    },
+    {
+      "words": [["נָא", "na"], ["גִבּוֹר", "gibor"], ["דּוֹרְשֵׁי", "dorshei"], ["יִחוּדְךָ", "yichudcha"], ["כְּבָבַת", "kevavat"], ["שָׁמְרֵם", "shomrem"]],
+      "english": "Please, Mighty One, guard like the pupil of the eye those who seek Your Oneness."
+    },
+    {
+      "words": [["בָּרְכֵם", "barchem"], ["טַהֲרֵם", "taharem"], ["רַחֲמֵי", "rachamei"], ["צִדְקָתְךָ", "tzidkatcha"], ["תָּמִיד", "tamid"], ["גָּמְלֵם", "gomlem"]],
+      "english": "Bless them, purify them; may Your righteous compassion always reward them."
+    },
+    {
+      "words": [["חֲסִין", "chasin"], ["קָדוֹשׁ", "kadosh"], ["בְּרוֹב", "berov"], ["טוּבְךָ", "tuvcha"], ["נַהֵל", "nahel"], ["עֲדָתֶךָ", "adatecha"]],
+      "english": "Mighty and Holy One, in Your abundant goodness lead Your congregation."
+    },
+    {
+      "words": [["יָחִיד", "yachid"], ["גֵּאֶה", "ge'eh"], ["לְעַמְּךָ", "le'amcha"], ["פְּנֵה", "pneh"], ["זוֹכְרֵי", "zochrei"], ["קְדֻשָּׁתֶךָ", "kedushatecha"]],
+      "english": "Only and Exalted One, turn to Your people who proclaim Your holiness."
+    },
+    {
+      "words": [["שַׁוְעָתֵנוּ", "shavatenu"], ["קַבֵּל", "kabel"], ["וּשְׁמַע", "ushma"], ["צַעֲקָתֵנוּ", "tza'akatenu"], ["יוֹדֵעַ", "yodea"], ["תַּעֲלוּמוֹת", "ta'alumot"]],
+      "english": "Accept our plea and hear our cry, O Knower of secrets."
+    }
+  ],
+  "seal": {
+    "words": [["בָּרוּךְ", "baruch"], ["שֵׁם", "shem"], ["כְּבוֹד", "kevod"], ["מַלְכוּתוֹ", "malchuto"], ["לְעוֹלָם", "le'olam"], ["וָעֶד", "va'ed"]],
+    "english": "Blessed is the Name of His glorious kingdom forever and ever.",
+    "note": "Recited quietly after the seven lines."
+  }
+}

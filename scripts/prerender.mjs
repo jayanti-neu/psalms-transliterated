@@ -23,6 +23,8 @@ const ORIGIN = "https://jayanti-neu.github.io";
 const BASE = "/psalms-transliterated/";
 const SITE = ORIGIN + BASE.replace(/\/$/, ""); // no trailing slash
 const PSALM_COUNT = 150;
+// Non-psalm texts to prerender; each has a src/prayers/<id>.json data file.
+const PRAYER_LIST = [{ id: "ana-bekoach", title: "Ana BeKoach" }];
 
 const template = await readFile(path.join(DIST, "index.html"), "utf8");
 
@@ -166,12 +168,16 @@ for (let n = 1; n <= PSALM_COUNT; n += 1) {
 const psalmIndex = Array.from({ length: PSALM_COUNT }, (_, i) => psalmLink(i + 1, String(i + 1))).join(
   " ",
 );
+const prayerLinks = PRAYER_LIST.map(
+  (p) => `<a href="${BASE}prayer/${p.id}/">${escapeHtml(p.title)}</a>`,
+).join(" ");
 const homeBody =
   `<main>` +
   `<h1>Tehilim Reader</h1>` +
   `<p>Read all 150 Psalms (Tehilim) in Hebrew with English transliteration, translation, ` +
   `and Rashi &amp; Steinsaltz commentary — plus the daily and weekly reading schedules.</p>` +
   `<nav aria-label="All psalms"><p>${psalmIndex}</p></nav>` +
+  `<nav aria-label="Prayers"><p>${prayerLinks}</p></nav>` +
   `</main>`;
 
 const homeHtml = buildPage({
@@ -191,6 +197,58 @@ const homeHtml = buildPage({
 });
 await writeFile(path.join(DIST, "index.html"), homeHtml);
 
+// --- Prayers ---------------------------------------------------------------
+
+const prayerUrls = [];
+for (const { id } of PRAYER_LIST) {
+  let prayer;
+  try {
+    prayer = JSON.parse(await readFile(path.join("src", "prayers", `${id}.json`), "utf8"));
+  } catch {
+    console.warn(`prerender: no data for prayer ${id}, skipping`);
+    continue;
+  }
+
+  const lines = [...prayer.lines, ...(prayer.seal ? [prayer.seal] : [])];
+  const rows = lines
+    .map((line) => {
+      const he = line.words.map((w) => w[0]).join(" ");
+      const tr = line.words.map((w) => w[1]).join(" ");
+      return (
+        `<li><span dir="rtl" lang="he">${escapeHtml(he)}</span>` +
+        ` <span lang="en">${escapeHtml(tr)}</span> — ${escapeHtml(line.english)}</li>`
+      );
+    })
+    .join("");
+
+  const title = `${prayer.title} — Hebrew, Transliteration & Translation | Tehilim Reader`;
+  const description = truncate(
+    `${prayer.title}${prayer.hebrewTitle ? ` (${prayer.hebrewTitle})` : ""} in Hebrew with ` +
+      `English transliteration and translation.${prayer.subtitle ? ` ${prayer.subtitle}.` : ""}`,
+    180,
+  );
+  const bodyContent =
+    `<main><article><h1>${escapeHtml(prayer.title)}</h1>` +
+    (prayer.subtitle ? `<p>${escapeHtml(prayer.subtitle)}</p>` : "") +
+    (prayer.note ? `<p>${escapeHtml(prayer.note)}</p>` : "") +
+    `<ol>${rows}</ol></article></main>`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CreativeWork",
+    name: prayer.title,
+    alternateName: prayer.hebrewTitle,
+    inLanguage: ["he", "en"],
+    url: `${SITE}/prayer/${id}/`,
+    description,
+  };
+
+  const html = buildPage({ title, description, canonicalPath: `/prayer/${id}/`, jsonLd, bodyContent });
+  const dir = path.join(DIST, "prayer", id);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, "index.html"), html);
+  prayerUrls.push(`${SITE}/prayer/${id}/`);
+}
+
 // SPA fallback: GitHub Pages serves 404.html for any path without a file.
 await copyFile(path.join(DIST, "index.html"), path.join(DIST, "404.html"));
 
@@ -200,6 +258,7 @@ const urls = [`${SITE}/`];
 for (let n = 1; n <= PSALM_COUNT; n += 1) {
   urls.push(`${SITE}/psalm/${n}/`);
 }
+urls.push(...prayerUrls);
 const sitemap =
   `<?xml version="1.0" encoding="UTF-8"?>\n` +
   `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
@@ -213,5 +272,6 @@ await writeFile(
 );
 
 console.log(
-  `prerender: wrote ${written} psalm pages + home, 404, sitemap (${urls.length} urls), robots`,
+  `prerender: wrote ${written} psalm pages + ${prayerUrls.length} prayer(s) + home, 404, ` +
+    `sitemap (${urls.length} urls), robots`,
 );
